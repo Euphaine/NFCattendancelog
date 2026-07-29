@@ -1,0 +1,53 @@
+@page "/settings"
+@using AttendanceSystem.Models
+
+<PageTitle>Campus Schedule Settings</PageTitle>
+
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Header Card -->
+    <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Campus Operating Schedule</h1>
+        <p class="text-slate-500 text-sm mt-1">Configure opening hours, late cutoff times, and campus closing time.</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="p-4 rounded-xl border @(IsSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800")">
+            @StatusMessage
+        </div>
+    }
+
+    <!-- Form Card -->
+    <div class="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-6">
+        <EditForm Model="ScheduleModel" OnValidSubmit="SaveSettings">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Campus Opening Time</label>
+                    <input type="time" value="@ScheduleModel.OpeningTime" @onchange="@(e => ScheduleModel.OpeningTime = e.Value?.ToString() ?? "08:00")" class="w-full p-3 rounded-xl border border-slate-300 text-slate-800 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <p class="text-xs text-slate-400 mt-1">Earliest time campus opens for entry.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-amber-600 uppercase mb-2">Late Cutoff Time</label>
+                    <input type="time" value="@ScheduleModel.LateThresholdTime" @onchange="@(e => ScheduleModel.LateThresholdTime = e.Value?.ToString() ?? "08:30")" class="w-full p-3 rounded-xl border border-slate-300 text-slate-800 font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+                    <p class="text-xs text-slate-400 mt-1">Scans after this time are marked <span class="font-bold text-amber-600">LATE</span>.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-rose-600 uppercase mb-2">Campus Closing Time</label>
+                    <input type="time" value="@ScheduleModel.ClosingTime" @onchange="@(e => ScheduleModel.ClosingTime = e.Value?.ToString() ?? "17:00")" class="w-full p-3 rounded-xl border border-slate-300 text-slate-800 font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+                    <p class="text-xs text-slate-400 mt-1">Scans after this time are flagged <span class="font-bold text-rose-600">AFTER HOURS</span>.</p>
+                </div>
+
+            </div>
+
+            <div class="mt-8 flex justify-end">
+                <button type="submit" disabled="@IsSaving" class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50">
+                    @(IsSaving ? "Saving..." : "💾 Save Schedule Settings")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>

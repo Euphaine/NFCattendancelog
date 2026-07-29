@@ -1,0 +1,240 @@
+@page "/register"
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-7">
+            <div class="card shadow-sm border-0 rounded-3">
+                <div class="card-header bg-primary text-white p-3">
+                    <h4 class="mb-0 fs-5"><i class="bi bi-person-plus-fill me-2"></i>Register New User</h4>
+                </div>
+                <div class="card-body p-4">
+
+                    <EditForm Model="UserModel" OnValidSubmit="OpenScanModal">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">School ID / Employee ID</label>
+                                <InputText @bind-Value="UserModel.SchoolId" class="form-control" placeholder="e.g. 210137" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">User Role</label>
+                               <InputSelect @bind-Value="UserModel.Role" @bind-Value:after="OnRoleOrEduChanged" class="form-select">
+    <option value="Student">Student</option>
+    <option value="Teacher">Teacher</option>
+    <option value="Staff">Staff</option>
+</InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">First Name</label>
+                                <InputText @bind-Value="UserModel.FirstName" class="form-control" placeholder="First Name" required />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold">Last Name</label>
+                                <InputText @bind-Value="UserModel.LastName" class="form-control" placeholder="Last Name" required />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-bold">Suffix</label>
+                                <InputText @bind-Value="UserModel.Suffix" class="form-control" placeholder="Jr., III" />
+                            </div>
+                        </div>
+
+                        <hr class="my-3 text-muted" />
+
+                        <!-- IF USER IS A STUDENT -->
+                        @if (UserModel.Role == "Student")
+                        {
+                            <!-- Educational Level Selection -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Educational Level</label>
+                                <InputSelect @bind-Value="UserModel.EducationalLevel" @bind-Value:after="OnRoleOrEduChanged" class="form-select">
+                                    <option value="Elementary">Elementary</option>
+                                    <option value="Junior High School">Junior High School</option>
+                                    <option value="Senior High School">Senior High School</option>
+                                    <option value="College">College</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <!-- College Department -->
+                                @if (UserModel.EducationalLevel == "College")
+                                {
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Department</label>
+                                        <InputSelect @bind-Value="UserModel.Department" class="form-select">
+                                            <option value="">Select Department...</option>
+                                            <option value="CCIS">College of Computing & Info Sciences (CCIS)</option>
+                                            <option value="CMAHS">College of Medicine & Allied Health (CMAHS)</option>
+                                            <option value="CBA">College of Business & Accountancy (CBA)</option>
+                                            <option value="CED">College of Education (CED)</option>
+                                        </InputSelect>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Course / Program</label>
+                                        <InputSelect @bind-Value="UserModel.Course" class="form-select">
+                                            <option value="">Select Course...</option>
+                                            <option value="BSIT">BS Information Technology</option>
+                                            <option value="BSCS">BS Computer Science</option>
+                                            <option value="Midwifery">BS Midwifery</option>
+                                            <option value="Accountancy">BS Accountancy</option>
+                                        </InputSelect>
+                                    </div>
+                                }
+                                else if (UserModel.EducationalLevel == "Senior High School")
+                                {
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">SHS Track / Strand</label>
+                                        <InputSelect @bind-Value="UserModel.Course" class="form-select">
+                                            <option value="">Select Strand...</option>
+                                            <option value="HUMSS">HUMSS</option>
+                                            <option value="STEM">STEM</option>
+                                            <option value="ABM">ABM</option>
+                                            <option value="TVL">TVL</option>
+                                            <option value="GAS">GAS</option>
+                                        </InputSelect>
+                                    </div>
+                                }
+
+                                <!-- Dynamic Year / Grade Level Options -->
+                                <div class="@(UserModel.EducationalLevel == "College" ? "col-12" : (UserModel.EducationalLevel == "Senior High School" ? "col-md-6" : "col-12"))">
+                                    <label class="form-label fw-bold">
+                                        @(UserModel.EducationalLevel == "College" ? "Year Level" : "Grade Level")
+                                    </label>
+                                    <InputSelect @bind-Value="UserModel.YearLevel" class="form-select">
+                                        @if (UserModel.EducationalLevel == "Elementary")
+                                        {
+                                            <option value="Grade 1">Grade 1</option>
+                                            <option value="Grade 2">Grade 2</option>
+                                            <option value="Grade 3">Grade 3</option>
+                                            <option value="Grade 4">Grade 4</option>
+                                            <option value="Grade 5">Grade 5</option>
+                                            <option value="Grade 6">Grade 6</option>
+                                        }
+                                        else if (UserModel.EducationalLevel == "Junior High School")
+                                        {
+                                            <option value="Grade 7">Grade 7</option>
+                                            <option value="Grade 8">Grade 8</option>
+                                            <option value="Grade 9">Grade 9</option>
+                                            <option value="Grade 10">Grade 10</option>
+                                        }
+                                        else if (UserModel.EducationalLevel == "Senior High School")
+                                        {
+                                            <option value="Grade 11">Grade 11</option>
+                                            <option value="Grade 12">Grade 12</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="1st Year">1st Year</option>
+                                            <option value="2nd Year">2nd Year</option>
+                                            <option value="3rd Year">3rd Year</option>
+                                            <option value="4th Year">4th Year</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- TEACHER / STAFF DEPARTMENT OPTION -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Department / Office</label>
+                                <InputText @bind-Value="UserModel.Department" class="form-control" placeholder="e.g. Faculty / High School Department / Admin" />
+                            </div>
+                        }
+
+                        <hr class="my-4" />
+
+                        <!-- Confirmation Checkbox & Action Button -->
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmData" @bind="IsDataConfirmed">
+                                <label class="form-check-label text-muted small" for="confirmData">
+                                    Done filling. Confirm details are complete.
+                                </label>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary px-4 fw-bold" disabled="@(!IsDataConfirmed)">
+                                Next: Scan NFC Card <i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </EditForm>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= NFC SCANNING MODAL ================= -->
+@if (IsModalOpen)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal d-block" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-center p-4 shadow-lg border-0 rounded-4">
+                
+                <div class="modal-body p-2">
+                    @if (IsSuccess)
+                    {
+                        <!-- SUCCESS STATE -->
+                        <div class="py-3">
+                            <div class="mb-3">
+                                <i class="bi bi-check-circle-fill text-success display-1"></i>
+                            </div>
+                            <h3 class="fw-bold text-success mb-2">Registration Successful!</h3>
+                            <p class="text-muted mb-4">
+                                <strong>@RegisteredName</strong> (@RegisteredId) has been linked to NFC Card.
+                            </p>
+
+                            <div class="d-flex justify-content-center gap-2">
+                                <button class="btn btn-success px-4 fw-bold" @onclick="CloseModal">
+                                    <i class="bi bi-plus-lg me-1"></i> Register Another User
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- SCANNING STATE -->
+                        <div class="mb-3">
+                            <span class="display-1 text-primary">💳</span>
+                        </div>
+
+                        <h4 class="fw-bold mb-1">Tap NFC Tag to Save</h4>
+                        <p class="text-muted mb-3">
+                            Assigning card to <strong>@UserModel.FirstName @UserModel.LastName</strong> (@UserModel.SchoolId)
+                        </p>
+
+                        <div class="alert alert-info border-0 rounded-3 py-2 small mb-3">
+                            Ready! Tap card on USB reader to complete registration.
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(ErrorMessage))
+                        {
+                            <div class="alert alert-danger py-2 small mb-3">
+                                @ErrorMessage
+                            </div>
+                        }
+
+                        <input @ref="nfcInputRef"
+                               @bind="UserModel.NfcTagId"
+                               @bind:event="oninput"
+                               @onkeyup="HandleKeyUp"
+                               class="form-control text-center my-2"
+                               placeholder="Waiting for card scan..."
+                               style="opacity: 0.95; font-family: monospace;"
+                               autofocus />
+
+                        <div class="d-flex justify-content-center gap-2 mt-4">
+                            <button class="btn btn-outline-secondary px-4" @onclick="CloseModal">Cancel</button>
+                        </div>
+                    }
+                </div>
+
+            </div>
+        </div>
+    </div>
+}

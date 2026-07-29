@@ -1,0 +1,154 @@
+@page "/reports"
+@using AttendanceSystem.Models
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+
+    <!-- Header & Date Range Filter Card -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-extrabold text-gray-800">Attendance Reports & CSV Export</h1>
+                <p class="text-sm text-gray-500 mt-1">Filter logs by date range and export official records.</p>
+            </div>
+
+            <button @onclick="ExportToExcel" disabled="@(!ReportLogs.Any())" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+    📗 Export to Excel
+</button>
+        </div>
+
+        <!-- Filter Controls Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50/80 p-4 rounded-xl border border-gray-200/60">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Start Date</label>
+                <input type="date" @bind="StartDate" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">End Date</label>
+                <input type="date" @bind="EndDate" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 mb-1">Filter Role</label>
+                <select @bind="SelectedRole" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+                    <option value="All">All Roles</option>
+                    <option value="Student">Students Only</option>
+                    <option value="Faculty">Faculty Only</option>
+                    <option value="Staff">Staff Only</option>
+                </select>
+            </div>
+
+            <div class="flex items-end">
+                <button @onclick="LoadReports" class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition-colors text-sm">
+                    🔍 Generate Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reports Data Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-4 border-b bg-gray-50/50 flex justify-between items-center">
+            <span class="font-bold text-gray-700">Matching Logs: <span class="text-blue-600">@ReportLogs.Count</span></span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-100/60 text-xs font-bold uppercase tracking-wider text-gray-500 border-b">
+                        <th class="p-4">Date</th>
+                        <th class="p-4">School ID</th>
+                        <th class="p-4">Name / Role</th>
+                        <th class="p-4">Dept / Course</th>
+                        <th class="p-4">Time IN</th>
+                        <th class="p-4">Time OUT</th>
+                        <th class="p-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    @if (IsLoading)
+                    {
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-gray-400">Loading attendance report...</td>
+                        </tr>
+                    }
+                    else if (ReportLogs.Any())
+                    {
+                        @foreach (var item in ReportLogs)
+                        {
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="p-4 font-mono font-medium text-gray-600">@item.LogDate</td>
+                                <td class="p-4 font-mono font-bold text-gray-800">@item.SchoolId</td>
+                                <td class="p-4">
+                                    <div class="font-bold text-gray-900">@item.FullName</div>
+                                    <div class="text-xs text-gray-400">@item.Role</div>
+                                </td>
+                                <td class="p-4 text-gray-600">@item.DepartmentCourse</td>
+                                <td class="p-4 font-mono text-emerald-700 font-semibold">@item.FormattedTimeIn</td>
+                                <td class="p-4 font-mono text-amber-700 font-semibold">@item.FormattedTimeOut</td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold @(item.Status == "ON Campus" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")">
+                                        @item.Status
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-gray-400">No logs found for the selected filter criteria.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime StartDate { get; set; } = DateTime.Today;
+    private DateTime EndDate { get; set; } = DateTime.Today;
+    private string SelectedRole { get; set; } = "All";
+    private bool IsLoading { get; set; } = false;
+    private List<ReportLogItem> ReportLogs { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReports();
+    }
+
+    private async Task LoadReports()
+    {
+        IsLoading = true;
+        try
+        {
+            var url = $"http://localhost/attendance-api/get_reports.php?startDate={StartDate:yyyy-MM-dd}&endDate={EndDate:yyyy-MM-dd}&role={SelectedRole}";
+            var response = await Http.GetFromJsonAsync<ReportResponse>(url);
+            if (response != null && response.Success)
+            {
+                ReportLogs = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading reports: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ExportToExcel()
+{
+    if (!ReportLogs.Any()) return;
+
+    var downloadUrl = $"http://localhost/attendance-api/get_reports.php?startDate={StartDate:yyyy-MM-dd}&endDate={EndDate:yyyy-MM-dd}&role={SelectedRole}&export=excel";
+    
+    // Trigger direct browser file download
+    await JS.InvokeVoidAsync("open", downloadUrl, "_blank");
+}
+}

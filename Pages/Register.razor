@@ -1,0 +1,139 @@
+@page "/register-backup"
+@using AttendanceSystem.Models
+
+<PageTitle>Register User</PageTitle>
+
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Register New User</h1>
+            <p class="text-slate-500 text-sm mt-1">Assign an NFC card/tag to a student or staff member.</p>
+        </div>
+
+        @if (IsScanning)
+        {
+            <span class="px-3 py-1 text-xs font-bold bg-emerald-100 text-emerald-800 rounded-full animate-pulse flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> WAITING FOR CARD TAP...
+            </span>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="p-4 rounded-xl border @(IsSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800")">
+            @StatusMessage
+        </div>
+    }
+
+    <div class="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <EditForm Model="RegisterModel" OnValidSubmit="HandleRegistration">
+            <div class="space-y-4">
+                
+                <!-- NFC Tag Field + Scan Button -->
+               <div>
+    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">NFC Tag UID</label>
+    <div class="flex gap-2">
+        <input @ref="nfcInputRef" autofocus type="text" @bind="RegisterModel.NfcTagId" placeholder="Tap card with USB reader or click 'Scan Card' for Mobile" required class="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        <button type="button" @onclick="StartNfcScan" class="px-4 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm whitespace-nowrap hover:bg-emerald-700 transition-all shadow-sm">
+            📡 Scan Card
+        </button>
+    </div>
+</div>
+
+                <!-- School ID & Role -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">School / Employee ID</label>
+                        <input type="text" @bind="RegisterModel.SchoolId" placeholder="e.g. 210133" required class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
+                        <select value="@RegisterModel.Role" @onchange="OnRoleChanged" class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <option value="Student">Student</option>
+                            <option value="Faculty">Faculty</option>
+                            <option value="Staff">Staff</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Name Fields -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">First Name</label>
+                        <input type="text" @bind="RegisterModel.FirstName" placeholder="e.g. Richard" required class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Last Name</label>
+                        <input type="text" @bind="RegisterModel.LastName" placeholder="e.g. Coronel" required class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Suffix (Optional)</label>
+                        <input type="text" @bind="RegisterModel.Suffix" placeholder="e.g. Jr., III" class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                </div>
+
+                @if (RegisterModel.Role == "Student")
+                {
+                    <!-- Educational Level -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Educational Level</label>
+                        <select value="@RegisterModel.EducationalLevel" @onchange="OnEducationalLevelChanged" class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <option value="College">College</option>
+                            <option value="Senior High School">Senior High School</option>
+                            <option value="Junior High School">Junior High School</option>
+                            <option value="Elementary">Elementary</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Department (Only for College Students) -->
+                        @if (RegisterModel.EducationalLevel == "College")
+                        {
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
+                                <input type="text" @bind="RegisterModel.Department" placeholder="e.g. CCIS" required class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                            </div>
+                        }
+
+                        <!-- Course / Strand (Only for College & Senior High School) -->
+                        @if (RegisterModel.EducationalLevel == "College" || RegisterModel.EducationalLevel == "Senior High School")
+                        {
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    @(RegisterModel.EducationalLevel == "Senior High School" ? "Strand" : "Course")
+                                </label>
+                                <input type="text" @bind="RegisterModel.Course" placeholder="@(RegisterModel.EducationalLevel == "Senior High School" ? "e.g. STEM, TVL" : "e.g. BS IT")" required class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                            </div>
+                        }
+
+                        <!-- Dynamic Grade / Year Level Dropdown -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade / Year Level</label>
+                            <select @bind="RegisterModel.YearLevel" class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                                @foreach (var level in YearLevelOptions)
+                                {
+                                    <option value="@level">@level</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Faculty/Staff Department Field -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
+                        <input type="text" @bind="RegisterModel.Department" placeholder="e.g. HR, IT Department, Administrative" required class="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                }
+
+                <div class="pt-4">
+                    <button type="submit" disabled="@IsSubmitting" class="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50">
+                        @(IsSubmitting ? "Registering..." : "Register User & Card")
+                    </button>
+                </div>
+
+            </div>
+        </EditForm>
+    </div>
+</div>
