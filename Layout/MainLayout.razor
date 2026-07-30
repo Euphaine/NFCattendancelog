@@ -1,16 +1,63 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+
+<div class="flex h-screen bg-gray-100 overflow-hidden relative">
+
+    <!-- Invisible Hover Trigger Zone on the far left edge of the screen -->
+    <div class="absolute inset-y-0 left-0 w-3 z-40" @onmouseenter="OpenSidebar"></div>
+
+    <!-- Collapsible Navigation Sidebar -->
+    <div class="absolute inset-y-0 left-0 z-50 w-64 bg-indigo-950 text-white transform transition-transform duration-300 ease-in-out @(IsSidebarOpen ? "translate-x-0" : "-translate-x-full") shadow-2xl flex flex-col"
+         @onmouseleave="CloseSidebar">
+         
+        <!-- Sidebar Header / Navigation Links -->
+        <div class="p-6 flex-1 overflow-y-auto">
+            <h2 class="text-xl font-extrabold tracking-wider mb-8 text-indigo-200">AttendanceSystem</h2>
+            
+            <nav class="space-y-2">
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" Match="NavLinkMatch.All" href="">
+                    <span>🏠</span> Home
+                </NavLink>
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" href="register">
+                    <span>👤</span> Register User
+                </NavLink>
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" href="scanner">
+                    <span>⚡</span> Attendance Terminal
+                </NavLink>
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" href="logs">
+                    <span>🛡️</span> Live Guard Monitor
+                </NavLink>
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" href="reports">
+                    <span>📊</span> Reports & Export
+                </NavLink>
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" href="settings">
+                    <span>📅</span> Campus Schedule
+                </NavLink>
+                <NavLink class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-indigo-900 transition-colors text-sm font-medium" href="users">
+                    🗂️ User Directory
+                </NavLink>
+            </nav>
+        </div>
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
+    <!-- Main Content Area (Full screen width) -->
+    <div class="flex-1 flex flex-col h-full overflow-y-auto">
+        <main class="flex-1">
             @Body
-        </article>
-    </main>
+        </main>
+    </div>
+
 </div>
+
+@code {
+    private bool IsSidebarOpen { get; set; } = false;
+
+    private void OpenSidebar()
+    {
+        IsSidebarOpen = true;
+    }
+
+    private void CloseSidebar()
+    {
+        IsSidebarOpen = false;
+    }
+}

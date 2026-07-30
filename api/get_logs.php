@@ -34,6 +34,7 @@ try {
                 u.SchoolId,
                 u.Department,
                 u.Course,
+                u.EducationalLevel,
                 COALESCE(u.YearLevel, '') AS YearLevel
             FROM attendancelogs l
             LEFT JOIN users u ON l.UserId = u.Id
@@ -54,7 +55,9 @@ try {
                 "fullName" => trim($row['FullName']),
                 "schoolId" => $row['SchoolId'] ?? '',
                 "role" => $row['Role'] ?? 'Student',
-                "department" => $deptOrCourse,
+                "department" => $row['Department'] ?? '',
+                "course" => $row['Course'] ?? '',
+                "educationalLevel" => $row['EducationalLevel'] ?? '',
                 "yearLevel" => $row['YearLevel'] ?? '',
                 "logDate" => $row['LogDate'] ?? '',
                 "timeIn" => (!empty($row['TimeIn']) && $row['TimeIn'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeIn'])) : '—',

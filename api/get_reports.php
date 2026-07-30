@@ -1,129 +1,111 @@
 <?php
-// api/get_reports.php
-require_once 'config.php';
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
 
-$startDate = $_GET['startDate'] ?? date('Y-m-d');
-$endDate = $_GET['endDate'] ?? date('Y-m-d');
-$roleFilter = $_GET['role'] ?? 'All';
-$exportMode = $_GET['export'] ?? 'json'; // 'json' or 'excel'
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json; charset=UTF-8");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 try {
-    $sql = "
-        SELECT 
-            u.SchoolId,
-            CONCAT(u.FirstName, ' ', u.LastName, IF(u.Suffix IS NOT NULL AND u.Suffix != '', CONCAT(' ', u.Suffix), '')) AS FullName,
-            u.Role,
-            IFNULL(u.Course, IFNULL(u.Department, 'N/A')) AS DepartmentCourse,
-            a.LogDate,
-            DATE_FORMAT(a.TimeIn, '%h:%i:%s %p') AS FormattedTimeIn,
-            IF(a.TimeOut IS NOT NULL, DATE_FORMAT(a.TimeOut, '%h:%i:%s %p'), '—') AS FormattedTimeOut,
-            a.Status
-        FROM AttendanceLogs a
-        JOIN Users u ON a.UserId = u.Id
-        WHERE a.LogDate BETWEEN :startDate AND :endDate
-    ";
+    $conn = new mysqli("localhost", "root", "", "attendance_db");
 
-    if ($roleFilter !== 'All') {
-        $sql .= " AND u.Role = :role";
+    if ($conn->connect_error) {
+        throw new Exception("Database connection error");
     }
 
-    $sql .= " ORDER BY a.LogDate DESC, a.Id DESC";
+    $role = $_GET['role'] ?? 'All';
+    $search = $_GET['search'] ?? '';
+    $startDate = $_GET['startDate'] ?? '';
+    $endDate = $_GET['endDate'] ?? '';
 
-    $stmt = $pdo->prepare($sql);
-    $params = [':startDate' => $startDate, ':endDate' => $endDate];
-    if ($roleFilter !== 'All') $params[':role'] = $roleFilter;
+    $sql = "SELECT 
+                l.Id,
+                l.UserId,
+                l.LogDate,
+                l.TimeIn,
+                l.TimeOut,
+                l.ActionStatus,
+                l.Punctuality,
+                l.Status,
+                l.Remarks,
+                CONCAT(COALESCE(u.FirstName,''), ' ', COALESCE(u.LastName,'')) AS FullName,
+                u.Role,
+                u.SchoolId,
+                u.Department,
+                u.Course,
+                u.EducationalLevel,
+                COALESCE(u.YearLevel, '') AS YearLevel
+            FROM attendancelogs l
+            LEFT JOIN users u ON l.UserId = u.Id
+            WHERE 1=1";
 
-    $stmt->execute($params);
-    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $params = [];
+    $types = "";
 
-    // IF EXCEL EXPORT REQUESTED: Output styled Excel File directly
-    if ($exportMode === 'excel') {
-        $filename = "Attendance_Report_" . str_replace('-', '', $startDate) . "_to_" . str_replace('-', '', $endDate) . ".xls";
-
-        header("Content-Type: application/vnd.ms-excel; charset=utf-8");
-        header("Content-Disposition: attachment; filename=\"$filename\"");
-        header("Pragma: no-cache");
-        header("Expires: 0");
-
-        echo '<?xml version="1.0"?>' . "\n";
-        echo '<?mso-application progid="Excel.Sheet"?>' . "\n";
-        ?>
-        <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-                  xmlns:o="urn:schemas-microsoft-com:office:office"
-                  xmlns:x="urn:schemas-microsoft-com:office:excel"
-                  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-         <Styles>
-          <Style ss:ID="HeaderStyle">
-           <Font ss:Bold="1" ss:Color="#FFFFFF"/>
-           <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
-           <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-          </Style>
-          <Style ss:ID="DateStyle">
-           <Alignment ss:Horizontal="Center"/>
-          </Style>
-          <Style ss:ID="StatusOn">
-           <Font ss:Color="#065F46" ss:Bold="1"/>
-           <Interior ss:Color="#D1FAE5" ss:Pattern="Solid"/>
-           <Alignment ss:Horizontal="Center"/>
-          </Style>
-          <Style ss:ID="StatusOff">
-           <Font ss:Color="#9A3412" ss:Bold="1"/>
-           <Interior ss:Color="#FFEDD5" ss:Pattern="Solid"/>
-           <Alignment ss:Horizontal="Center"/>
-          </Style>
-         </Styles>
-         <Worksheet ss:Name="Attendance Log">
-          <Table>
-           <!-- AUTO-EXPANDED COLUMN WIDTHS -->
-           <Column ss:Width="100"/> <!-- Date -->
-           <Column ss:Width="110"/> <!-- School ID -->
-           <Column ss:Width="180"/> <!-- Full Name -->
-           <Column ss:Width="90"/>  <!-- Role -->
-           <Column ss:Width="140"/> <!-- Dept / Course -->
-           <Column ss:Width="120"/> <!-- Time IN -->
-           <Column ss:Width="120"/> <!-- Time OUT -->
-           <Column ss:Width="110"/> <!-- Status -->
-           
-           <Row ss:Height="25">
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Date</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">School ID</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Full Name</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Role</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Department / Course</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Time IN</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Time OUT</Data></Cell>
-            <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Status</Data></Cell>
-           </Row>
-           <?php foreach ($logs as $log): ?>
-           <Row ss:Height="20">
-            <Cell ss:StyleID="DateStyle"><Data ss:Type="String"><?= htmlspecialchars($log['LogDate']) ?></Data></Cell>
-            <Cell><Data ss:Type="String"><?= htmlspecialchars($log['SchoolId']) ?></Data></Cell>
-            <Cell><Data ss:Type="String"><?= htmlspecialchars($log['FullName']) ?></Data></Cell>
-            <Cell><Data ss:Type="String"><?= htmlspecialchars($log['Role']) ?></Data></Cell>
-            <Cell><Data ss:Type="String"><?= htmlspecialchars($log['DepartmentCourse']) ?></Data></Cell>
-            <Cell ss:StyleID="DateStyle"><Data ss:Type="String"><?= htmlspecialchars($log['FormattedTimeIn']) ?></Data></Cell>
-            <Cell ss:StyleID="DateStyle"><Data ss:Type="String"><?= htmlspecialchars($log['FormattedTimeOut']) ?></Data></Cell>
-            <Cell ss:StyleID="<?= $log['Status'] === 'ON Campus' ? 'StatusOn' : 'StatusOff' ?>">
-                <Data ss:Type="String"><?= htmlspecialchars($log['Status']) ?></Data>
-            </Cell>
-           </Row>
-           <?php endforeach; ?>
-          </Table>
-         </Worksheet>
-        </Workbook>
-        <?php
-        exit();
+    if ($role !== 'All') {
+        $sql .= " AND u.Role = ?";
+        $params[] = $role;
+        $types .= "s";
     }
 
-    // Default JSON Response for Blazor UI rendering
-    echo json_encode([
-        "success" => true,
-        "count" => count($logs),
-        "data" => $logs
-    ]);
+    if (!empty($search)) {
+        $sql .= " AND (u.SchoolId LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "sss";
+    }
 
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+    if (!empty($startDate) && !empty($endDate)) {
+        $sql .= " AND l.LogDate BETWEEN ? AND ?";
+        $params[] = $startDate;
+        $params[] = $endDate;
+        $types .= "ss";
+    }
+
+    $sql .= " ORDER BY l.Id DESC LIMIT 200";
+
+    $stmt = $conn->prepare($sql);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $reports = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $reports[] = [
+            "id" => (int)$row['Id'],
+            "schoolId" => $row['SchoolId'] ?? '',
+            "fullName" => trim($row['FullName']),
+            "role" => $row['Role'] ?? 'Student',
+            "department" => $row['Department'] ?? '',
+            "course" => $row['Course'] ?? '',
+            "educationalLevel" => $row['EducationalLevel'] ?? '',
+            "yearLevel" => $row['YearLevel'] ?? '',
+            "logDate" => $row['LogDate'] ?? '',
+            "timeIn" => (!empty($row['TimeIn']) && $row['TimeIn'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeIn'])) : '—',
+            "timeOut" => (!empty($row['TimeOut']) && $row['TimeOut'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeOut'])) : '—',
+            "status" => $row['Status'] ?? 'ON Campus',
+            "punctuality" => $row['Punctuality'] ?? 'ON TIME',
+            "remarks" => $row['Remarks'] ?? ''
+        ];
+    }
+
+    echo json_encode(["success" => true, "data" => $reports]);
+    $stmt->close();
+    $conn->close();
+
+} catch (Exception $e) {
+    http_response_code(200);
+    echo json_encode(["success" => false, "message" => $e->getMessage(), "data" => []]);
 }
 ?>

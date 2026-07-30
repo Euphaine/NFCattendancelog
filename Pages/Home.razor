@@ -1,7 +1,120 @@
 ﻿@page "/"
+@inject HttpClient Http
 
-<PageTitle>Home</PageTitle>
+<div class="p-8 max-w-7xl mx-auto space-y-8">
 
-<h1>Hello, world!</h1>
+    <!-- Welcome Hero Banner -->
+    <div class="bg-gradient-to-r from-indigo-900 to-blue-800 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-center">
+        <div class="space-y-3">
+            <span class="bg-indigo-700/60 text-indigo-200 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">System Operational</span>
+            <h1 class="text-3xl font-extrabold tracking-tight">Campus Attendance Dashboard</h1>
+            <p class="text-indigo-200 text-sm max-w-xl">
+                Real-time tracking, quick NFC/RFID attendance logging, and automated reporting for students, faculty, and staff.
+            </p>
+        </div>
+        <div class="mt-6 md:mt-0 flex gap-3">
+            <a href="terminal" class="bg-white text-indigo-950 font-semibold px-5 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors shadow-md text-sm flex items-center gap-2">
+                ⚡ Open Terminal
+            </a>
+            <a href="reports" class="bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-indigo-600 transition-colors shadow-md text-sm flex items-center gap-2">
+                📊 View Reports
+            </a>
+        </div>
+    </div>
 
-Welcome to your new app.
+    <!-- Quick Stats Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold">👥</div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Registered</p>
+                <h3 class="text-2xl font-bold text-gray-800">@(IsLoading ? "..." : TotalUsers.ToString())</h3>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold">✅</div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Logs Today</p>
+                <h3 class="text-2xl font-bold text-gray-800">@(IsLoading ? "..." : TotalLogsToday.ToString())</h3>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl font-bold">🎓</div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Students Active</p>
+                <h3 class="text-2xl font-bold text-gray-800">Active</h3>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl font-bold">🛡️</div>
+            <div>
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Guard Status</p>
+                <h3 class="text-2xl font-bold text-emerald-600 text-base mt-1">Monitoring Online</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Navigation Shortcuts Section -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <a href="register" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
+            <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">👤</div>
+            <h3 class="font-bold text-gray-800 mb-1">Register New User</h3>
+            <p class="text-xs text-gray-500">Enroll new students, faculty members, or staff into the RFID/NFC system database.</p>
+        </a>
+
+        <a href="guard-monitor" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
+            <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">🛡️</div>
+            <h3 class="font-bold text-gray-800 mb-1">Live Guard Monitor</h3>
+            <p class="text-xs text-gray-500">Real-time live feed of campus entry and exits for security personnel.</p>
+        </a>
+
+        <a href="schedule" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
+            <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">📅</div>
+            <h3 class="font-bold text-gray-800 mb-1">Campus Schedule</h3>
+            <p class="text-xs text-gray-500">Manage school shifts, time-in windows, and academic calendar hours.</p>
+        </a>
+    </div>
+
+</div>
+
+@code {
+    private bool IsLoading { get; set; } = true;
+    private int TotalUsers { get; set; } = 0;
+    private int TotalLogsToday { get; set; } = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardMetrics();
+    }
+
+    private async Task LoadDashboardMetrics()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<StatsResponse>("http://localhost/attendance-api/dashboard_stats.php");
+            if (response != null && response.Success)
+            {
+                TotalUsers = response.TotalUsers;
+                TotalLogsToday = response.TotalLogsToday;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public class StatsResponse
+    {
+        public bool Success { get; set; }
+        public int TotalUsers { get; set; }
+        public int TotalLogsToday { get; set; }
+    }
+}

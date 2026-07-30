@@ -10,7 +10,6 @@ namespace AttendanceSystem.Pages
         protected List<LogEntryModel> Logs { get; set; } = new();
         protected bool IsLoading { get; set; } = true;
         protected string SearchQuery { get; set; } = string.Empty;
-
         private CancellationTokenSource _cts = new();
 
         // Computed Filtered Logs for Search Bar
@@ -97,6 +96,8 @@ namespace AttendanceSystem.Pages
         public string SchoolId { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public string Department { get; set; } = string.Empty;
+        public string Course { get; set; } = string.Empty;
+        public string EducationalLevel { get; set; } = string.Empty;
         public string YearLevel { get; set; } = string.Empty;
         public string LogDate { get; set; } = string.Empty;
         public string TimeIn { get; set; } = string.Empty;
@@ -105,10 +106,5 @@ namespace AttendanceSystem.Pages
         public string Punctuality { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string Remarks { get; set; } = string.Empty;
-
-        // Aliases to match LiveLogs.razor property names
-        public string Course => Department;
-        public string FormattedTimeIn => TimeIn;
-        public string FormattedTimeOut => TimeOut;
     }
 }

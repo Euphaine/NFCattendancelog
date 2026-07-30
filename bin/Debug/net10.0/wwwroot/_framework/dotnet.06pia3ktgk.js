@@ -5,7 +5,7 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
   "mainAssemblyName": "AttendanceSystem",
   "applicationEnvironment": "Development",
   "resources": {
-    "hash": "sha256-HADe/4pkDvdJmxRVSCFQ3vJKciVrBAhlbv6MBbMuuaM=",
+    "hash": "sha256-hEtmgSg3H+ulu2QmBmtawhN4dsZ6SFaKoh7p0/Esyyk=",
     "jsModuleNative": [
       {
         "name": "dotnet.native.puryxhmhq9.js"
@@ -1242,16 +1242,16 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
       },
       {
         "virtualPath": "AttendanceSystem.wasm",
-        "name": "AttendanceSystem.3dogthbnkx.wasm",
-        "hash": "sha256-qY8ylWY1M8PK2/pamoh6em5/WKyNxQXPIUACNBdaKls=",
+        "name": "AttendanceSystem.ve5ipq4o8l.wasm",
+        "hash": "sha256-54ygnZP2ut9iuv8FAc/X+2r0r8QzP3IY1ZL/i4guCAw=",
         "cache": "force-cache"
       }
     ],
     "pdb": [
       {
         "virtualPath": "AttendanceSystem.pdb",
-        "name": "AttendanceSystem.69qxu6ocqu.pdb",
-        "hash": "sha256-1saQgw+PEDWnISEUln9eKywkgwsx1dZZqa6aM2hb36Y=",
+        "name": "AttendanceSystem.4fvgqefcm1.pdb",
+        "hash": "sha256-EEWyqkuVN7RLfYoRjz9VT/mVBuUOBifaQA28TijMKc0=",
         "cache": "force-cache"
       }
     ],
