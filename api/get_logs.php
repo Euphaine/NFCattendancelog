@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
+date_default_timezone_set('Asia/Manila');
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
@@ -14,11 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     $conn = new mysqli("localhost", "root", "", "attendance_db");
-
     if ($conn->connect_error) {
         throw new Exception("Database connection error");
     }
 
+    // Sorting by greatest ID or latest timestamp ensures the most recent scan is always at the top
     $sql = "SELECT 
                 l.Id,
                 l.UserId,
@@ -38,7 +39,7 @@ try {
                 COALESCE(u.YearLevel, '') AS YearLevel
             FROM attendancelogs l
             LEFT JOIN users u ON l.UserId = u.Id
-            ORDER BY l.Id DESC 
+            ORDER BY GREATEST(COALESCE(l.TimeIn, '0000-00-00 00:00:00'), COALESCE(l.TimeOut, '0000-00-00 00:00:00')) DESC, l.Id DESC 
             LIMIT 50";
 
     $result = $conn->query($sql);
@@ -46,9 +47,8 @@ try {
 
     if ($result) {
         while ($row = $result->fetch_assoc()) {
-            
-            // Fix: If Department is empty/blank, fall back to Course/Strand!
-            $deptOrCourse = !empty($row['Department']) ? $row['Department'] : (!empty($row['Course']) ? $row['Course'] : 'N/A');
+            $timeInFormatted = (!empty($row['TimeIn']) && $row['TimeIn'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeIn'])) : '—';
+            $timeOutFormatted = (!empty($row['TimeOut']) && $row['TimeOut'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeOut'])) : '—';
 
             $logs[] = [
                 "id" => (int)$row['Id'],
@@ -60,10 +60,10 @@ try {
                 "educationalLevel" => $row['EducationalLevel'] ?? '',
                 "yearLevel" => $row['YearLevel'] ?? '',
                 "logDate" => $row['LogDate'] ?? '',
-                "timeIn" => (!empty($row['TimeIn']) && $row['TimeIn'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeIn'])) : '—',
-                "timeOut" => (!empty($row['TimeOut']) && $row['TimeOut'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeOut'])) : '—',
+                "timeIn" => $timeInFormatted,
+                "timeOut" => $timeOutFormatted,
                 "actionStatus" => $row['ActionStatus'] ?? 'ENTRY',
-                "punctuality" => $row['Punctuality'] ?? 'ON TIME',
+                "punctuality" => $row['Punctuality'] ?? '',
                 "status" => $row['Status'] ?? 'ON Campus',
                 "remarks" => $row['Remarks'] ?? ''
             ];
@@ -74,7 +74,6 @@ try {
     $conn->close();
 
 } catch (Exception $e) {
-    http_response_code(200);
     echo json_encode(["success" => false, "message" => $e->getMessage(), "logs" => []]);
 }
 ?>

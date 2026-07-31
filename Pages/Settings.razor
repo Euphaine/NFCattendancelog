@@ -1,53 +1,64 @@
 @page "/settings"
-@using AttendanceSystem.Models
 
 <PageTitle>Campus Schedule Settings</PageTitle>
 
 <div class="max-w-4xl mx-auto space-y-6">
+    <div class="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-sm text-white">
+        <h1 class="text-3xl font-extrabold tracking-tight">Level-Based Time Thresholds</h1>
+        <p class="text-zinc-400 text-sm mt-1">Configure individual late cutoff schedules or turn off threshold tracking per educational department.</p>
+    </div>
 
-    <!-- Header Card -->
-    <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-        <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Campus Operating Schedule</h1>
-        <p class="text-slate-500 text-sm mt-1">Configure opening hours, late cutoff times, and campus closing time.</p>
+    <!-- Level Selector Tabs -->
+    <div class="flex gap-2 overflow-x-auto pb-2">
+        @foreach (var lvl in Levels)
+        {
+            <button @onclick="() => SelectLevel(lvl)" class="px-5 py-2.5 rounded-xl font-bold text-sm transition-all border @(SelectedLevel == lvl ? "bg-amber-500 text-black border-amber-400 shadow-md" : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800")">
+                @lvl
+            </button>
+        }
     </div>
 
     @if (!string.IsNullOrEmpty(StatusMessage))
     {
-        <div class="p-4 rounded-xl border @(IsSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800")">
+        <div class="p-4 rounded-xl border @(IsSuccess ? "bg-emerald-950/50 border-emerald-800 text-emerald-300" : "bg-rose-950/50 border-rose-800 text-rose-300")">
             @StatusMessage
         </div>
     }
 
-    <!-- Form Card -->
-    <div class="p-8 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-6">
-        <EditForm Model="ScheduleModel" OnValidSubmit="SaveSettings">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Campus Opening Time</label>
-                    <input type="time" value="@ScheduleModel.OpeningTime" @onchange="@(e => ScheduleModel.OpeningTime = e.Value?.ToString() ?? "08:00")" class="w-full p-3 rounded-xl border border-slate-300 text-slate-800 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                    <p class="text-xs text-slate-400 mt-1">Earliest time campus opens for entry.</p>
-                </div>
+    <!-- Settings Form -->
+    <div class="p-8 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-sm space-y-6 text-white">
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+            <div>
+                <h3 class="font-bold text-lg">Enable Time Threshold for @SelectedLevel</h3>
+                <p class="text-xs text-zinc-400">If disabled, students in this department won't be flagged as late.</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" @bind="CurrentModel.ThresholdEnabled" class="sr-only peer">
+                <div class="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+            </label>
+        </div>
 
-                <div>
-                    <label class="block text-xs font-bold text-amber-600 uppercase mb-2">Late Cutoff Time</label>
-                    <input type="time" value="@ScheduleModel.LateThresholdTime" @onchange="@(e => ScheduleModel.LateThresholdTime = e.Value?.ToString() ?? "08:30")" class="w-full p-3 rounded-xl border border-slate-300 text-slate-800 font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
-                    <p class="text-xs text-slate-400 mt-1">Scans after this time are marked <span class="font-bold text-amber-600">LATE</span>.</p>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-rose-600 uppercase mb-2">Campus Closing Time</label>
-                    <input type="time" value="@ScheduleModel.ClosingTime" @onchange="@(e => ScheduleModel.ClosingTime = e.Value?.ToString() ?? "17:00")" class="w-full p-3 rounded-xl border border-slate-300 text-slate-800 font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none" />
-                    <p class="text-xs text-slate-400 mt-1">Scans after this time are flagged <span class="font-bold text-rose-600">AFTER HOURS</span>.</p>
-                </div>
-
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <label class="block text-xs font-bold text-zinc-400 uppercase mb-2">Opening Time</label>
+                <input type="time" @bind="CurrentModel.OpeningTime" class="w-full p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
 
-            <div class="mt-8 flex justify-end">
-                <button type="submit" disabled="@IsSaving" class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md hover:shadow-lg disabled:opacity-50">
-                    @(IsSaving ? "Saving..." : "💾 Save Schedule Settings")
-                </button>
+            <div>
+                <label class="block text-xs font-bold text-amber-400 uppercase mb-2">Late Cutoff Time</label>
+                <input type="time" @bind="CurrentModel.LateThresholdTime" class="w-full p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none" />
             </div>
-        </EditForm>
+
+            <div>
+                <label class="block text-xs font-bold text-rose-400 uppercase mb-2">Closing Time</label>
+                <input type="time" @bind="CurrentModel.ClosingTime" class="w-full p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-white font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-end">
+            <button @onclick="SaveSettings" disabled="@IsSaving" class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold transition-all shadow-md disabled:opacity-50">
+                @(IsSaving ? "Saving..." : $"💾 Save {SelectedLevel} Settings")
+            </button>
+        </div>
     </div>
 </div>

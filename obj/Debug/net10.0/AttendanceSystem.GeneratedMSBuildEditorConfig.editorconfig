@@ -41,10 +41,6 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ291bnRlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/C\#/AttendanceSystem/Pages/Home.razor]
-build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSG9tZS5yYXpvcg==
-build_metadata.AdditionalFiles.CssScope = 
-
 [C:/C\#/AttendanceSystem/Pages/IDScanner.razor]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSURTY2FubmVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -92,3 +88,7 @@ build_metadata.AdditionalFiles.CssScope = b-gizvgoz0k3
 [C:/C\#/AttendanceSystem/Layout/NavMenu.razor]
 build_metadata.AdditionalFiles.TargetPath = TGF5b3V0XE5hdk1lbnUucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = b-yr4ktjt1q9
+
+[C:/C\#/AttendanceSystem/Pages/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSG9tZS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-w3azyziiea

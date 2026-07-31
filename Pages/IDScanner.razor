@@ -13,8 +13,8 @@
             <span class="text-xs font-extrabold tracking-widest uppercase text-emerald-400">Terminal Active</span>
         </div>
 
-        <h1 class="text-3xl font-black text-white tracking-tight">Tap ID / ATM Card</h1>
-        <p class="text-slate-400 text-sm">Mobile Web NFC or Desktop USB Reader supported.</p>
+        <h1 class="text-3xl font-black text-white tracking-tight">Tap NFC Tag Here</h1>
+       <!-- <p class="text-slate-400 text-sm">Mobile Web NFC or Desktop USB Reader supported.</p> -->
 
         <!-- Hidden / Auto-Focused Input Box for USB Readers -->
         <div class="pt-2">
@@ -46,15 +46,18 @@
                 </div>
 
                 <!-- Status Badges -->
-                <div class="flex flex-col items-end gap-1">
-                    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider @(LastScannedUser.ActionStatus == "ENTRY" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")">
-                        @(LastScannedUser.ActionStatus == "ENTRY" ? "IN CAMPUS" : "OUT OF CAMPUS")
-                    </span>
+<div class="flex flex-col items-end gap-1">
+    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider @(LastScannedUser.ActionStatus == "ENTRY" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")">
+        @(LastScannedUser.ActionStatus == "ENTRY" ? "IN CAMPUS" : "OUT OF CAMPUS")
+    </span>
 
-                    <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider @GetPunctualityStyle(LastScannedUser.Punctuality)">
-                        @LastScannedUser.Punctuality
-                    </span>
-                </div>
+    @if (!string.IsNullOrEmpty(LastScannedUser.Punctuality))
+    {
+        <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider @GetPunctualityStyle(LastScannedUser.Punctuality)">
+            @LastScannedUser.Punctuality
+        </span>
+    }
+</div>
             </div>
 
             <!-- Greeting Banner -->

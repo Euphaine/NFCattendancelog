@@ -42,7 +42,7 @@ nunit-agent*.log
 nunit-server*.log
 
 # Code Analysis
-*.CodeAnalysisLog.xml
+*.CodeAnalysisLog.xmle
 
 # Rider
 .idea/

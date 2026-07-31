@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
+date_default_timezone_set('Asia/Manila');
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
@@ -70,7 +71,8 @@ try {
         $types .= "ss";
     }
 
-    $sql .= " ORDER BY l.Id DESC LIMIT 200";
+    // Default sorting order optimized for tracking latest entries / emergency checks
+    $sql .= " ORDER BY GREATEST(COALESCE(l.TimeIn, '0000-00-00 00:00:00'), COALESCE(l.TimeOut, '0000-00-00 00:00:00')) DESC, l.Id DESC LIMIT 500";
 
     $stmt = $conn->prepare($sql);
     if (!empty($params)) {

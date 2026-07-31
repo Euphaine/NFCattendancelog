@@ -9,56 +9,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-$host = "localhost";
-$user = "root";
-$pass = "";
-$dbname = "attendance_db";
-
-$conn = new mysqli($host, $user, $pass, $dbname);
-
+$conn = new mysqli("localhost", "root", "", "attendance_db");
 if ($conn->connect_error) {
     echo json_encode(["success" => false, "message" => "Database connection failed"]);
     exit();
 }
 
-// GET REQUEST: Load Current Settings
+// GET REQUEST: Load all settings or a specific level
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $result = $conn->query("SELECT OpeningTime, LateThresholdTime, ClosingTime FROM campussettings WHERE Id = 1");
-    if ($row = $result->fetch_assoc()) {
-        echo json_encode([
-            "success" => true,
+    $result = $conn->query("SELECT EducationalLevel, OpeningTime, LateThresholdTime, ClosingTime, ThresholdEnabled FROM campussettings");
+    $settings = [];
+    while ($row = $result->fetch_assoc()) {
+        $settings[] = [
+            "educationalLevel" => $row['EducationalLevel'],
             "openingTime" => $row['OpeningTime'],
             "lateThresholdTime" => $row['LateThresholdTime'],
-            "closingTime" => $row['ClosingTime']
-        ]);
-    } else {
-        echo json_encode(["success" => false, "message" => "No settings found"]);
+            "closingTime" => $row['ClosingTime'],
+            "thresholdEnabled" => (bool)$row['ThresholdEnabled']
+        ];
     }
+    echo json_encode(["success" => true, "data" => $settings]);
     exit();
 }
 
-// POST REQUEST: Save Settings
+// POST REQUEST: Save settings per level
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
-
+    
+    $level = $data['educationalLevel'] ?? 'College';
     $opening = $data['openingTime'] ?? null;
     $late = $data['lateThresholdTime'] ?? null;
     $closing = $data['closingTime'] ?? null;
+    $enabled = isset($data['thresholdEnabled']) ? (int)$data['thresholdEnabled'] : 1;
 
-    if (!$opening || !$late || !$closing) {
-        echo json_encode(["success" => false, "message" => "Invalid input data"]);
-        exit();
-    }
-
-    $stmt = $conn->prepare("UPDATE campussettings SET OpeningTime = ?, LateThresholdTime = ?, ClosingTime = ?, UpdatedAt = NOW() WHERE Id = 1");
-    $stmt->bind_param("sss", $opening, $late, $closing);
+    $stmt = $conn->prepare("UPDATE campussettings SET OpeningTime = ?, LateThresholdTime = ?, ClosingTime = ?, ThresholdEnabled = ?, UpdatedAt = NOW() WHERE EducationalLevel = ?");
+    $stmt->bind_param("sssis", $opening, $late, $closing, $enabled, $level);
 
     if ($stmt->execute()) {
-        echo json_encode(["success" => true, "message" => "Settings updated successfully"]);
+        echo json_encode(["success" => true, "message" => "Settings for $level updated successfully"]);
     } else {
         echo json_encode(["success" => false, "message" => "Failed to update settings"]);
     }
-
     $stmt->close();
     exit();
 }

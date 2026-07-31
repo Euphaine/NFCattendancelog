@@ -1,89 +1,94 @@
 ﻿@page "/"
 @inject HttpClient Http
 
-<div class="p-8 max-w-7xl mx-auto space-y-8">
+<div class="relative min-h-screen p-8 max-w-7xl mx-auto space-y-8 overflow-hidden">
+    
+    <!-- Main Content Layer -->
+    <div class="relative z-10 space-y-8">
 
-    <!-- Welcome Hero Banner -->
-    <div class="bg-gradient-to-r from-indigo-900 to-blue-800 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-center">
-        <div class="space-y-3">
-            <span class="bg-indigo-700/60 text-indigo-200 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">System Operational</span>
-            <h1 class="text-3xl font-extrabold tracking-tight">Campus Attendance Dashboard</h1>
-            <p class="text-indigo-200 text-sm max-w-xl">
-                Real-time tracking, quick NFC/RFID attendance logging, and automated reporting for students, faculty, and staff.
-            </p>
+        <!-- Welcome Hero Banner -->
+        <div class="bg-gradient-to-r from-blue-950 via-blue-900 to-amber-600 rounded-3xl p-8 text-white shadow-2xl flex flex-col md:flex-row justify-between items-center border border-amber-500/30">
+            <div class="space-y-3 flex items-center gap-6">
+                <div class="hidden sm:flex bg-blue-950 p-2 rounded-2xl shadow-md border-2 border-amber-400">
+                    <img src="images/scc-logo.png" alt="SCC Logo" class="w-16 h-16 object-contain" />
+                </div>
+                <div>
+                    <span class="bg-amber-500/30 text-amber-300 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-amber-400/30">System Operational</span>
+                    <h1 class="text-3xl font-extrabold tracking-tight mt-1 text-white">Southern Christian College</h1>
+                    <p class="text-blue-100 text-sm max-w-xl mt-1">
+                        School Attendance System using RFID/NFC and SMS Technology
+                    </p>
+                </div>
+            </div>
+            <div class="mt-6 md:mt-0 flex gap-3">
+                <a href="scanner" class="bg-amber-500 hover:bg-amber-400 text-blue-950 font-bold px-5 py-2.5 rounded-xl transition-colors shadow-md text-sm flex items-center gap-2">
+                    ⚡ Open Terminal
+                </a>
+                <a href="reports" class="bg-blue-900/90 hover:bg-blue-900 text-white font-semibold px-5 py-2.5 rounded-xl border border-amber-400/40 transition-colors shadow-md text-sm flex items-center gap-2">
+                    📊 View Reports
+                </a>
+            </div>
         </div>
-        <div class="mt-6 md:mt-0 flex gap-3">
-            <a href="terminal" class="bg-white text-indigo-950 font-semibold px-5 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors shadow-md text-sm flex items-center gap-2">
-                ⚡ Open Terminal
+
+        <!-- Streamlined Stats Cards Grid (3 Core Metrics) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="@CardStyleClass flex items-center gap-4 border-l-4 border-l-blue-500">
+                <div class="w-12 h-12 bg-blue-950 text-blue-400 rounded-xl flex items-center justify-center text-xl font-bold border border-blue-800/50">👥</div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider @(MainLayout.IsDarkMode ? "text-zinc-400" : "text-gray-400")">Total Registered Users</p>
+                    <h3 class="text-2xl font-bold @(MainLayout.IsDarkMode ? "text-white" : "text-gray-800")">@(IsLoading ? "..." : TotalUsers.ToString())</h3>
+                </div>
+            </div>
+
+            <div class="@CardStyleClass flex items-center gap-4 border-l-4 border-l-emerald-500">
+                <div class="w-12 h-12 bg-emerald-950 text-emerald-400 rounded-xl flex items-center justify-center text-xl font-bold border border-emerald-800/50">✅</div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider @(MainLayout.IsDarkMode ? "text-zinc-400" : "text-gray-400")">Attendance Logs Today</p>
+                    <h3 class="text-2xl font-bold @(MainLayout.IsDarkMode ? "text-white" : "text-gray-800")">@(IsLoading ? "..." : TotalLogsToday.ToString())</h3>
+                </div>
+            </div>
+
+            <div class="@CardStyleClass flex items-center gap-4 border-l-4 border-l-amber-500">
+                <div class="w-12 h-12 bg-amber-950 text-amber-400 rounded-xl flex items-center justify-center text-xl font-bold border border-amber-800/50">🛡️</div>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider @(MainLayout.IsDarkMode ? "text-zinc-400" : "text-gray-400")">Database Connection</p>
+                    <h3 class="text-xl font-bold text-emerald-500 mt-0.5">Online & Synced</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Navigation Shortcuts Section -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <a href="register" class="@CardStyleClass hover:border-amber-500/60 hover:shadow-lg transition-all group">
+                <div class="w-10 h-10 bg-blue-950 text-blue-400 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-amber-500 group-hover:text-black transition-colors border border-blue-800/40">👤</div>
+                <h3 class="font-bold mb-1 group-hover:text-amber-400 transition-colors @(MainLayout.IsDarkMode ? "text-white" : "text-gray-800")">Register New User</h3>
+                <p class="text-xs @(MainLayout.IsDarkMode ? "text-zinc-400" : "text-gray-500")">Enroll new students, faculty members, or staff into the NFC system database[cite: 1].</p>
             </a>
-            <a href="reports" class="bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-indigo-600 transition-colors shadow-md text-sm flex items-center gap-2">
-                📊 View Reports
+
+            <a href="logs" class="@CardStyleClass hover:border-amber-500/60 hover:shadow-lg transition-all group">
+                <div class="w-10 h-10 bg-blue-950 text-blue-400 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-amber-500 group-hover:text-black transition-colors border border-blue-800/40">🛡️</div>
+                <h3 class="font-bold mb-1 group-hover:text-amber-400 transition-colors @(MainLayout.IsDarkMode ? "text-white" : "text-gray-800")">Live Guard Monitor</h3>
+                <p class="text-xs @(MainLayout.IsDarkMode ? "text-zinc-400" : "text-gray-500")">Real-time live feed of campus entry and exits for security personnel.</p>
+            </a>
+
+            <a href="settings" class="@CardStyleClass hover:border-amber-500/60 hover:shadow-lg transition-all group">
+                <div class="w-10 h-10 bg-blue-950 text-blue-400 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-amber-500 group-hover:text-black transition-colors border border-blue-800/40">📅</div>
+                <h3 class="font-bold mb-1 group-hover:text-amber-400 transition-colors @(MainLayout.IsDarkMode ? "text-white" : "text-gray-800")">Campus Time Threshold</h3>
+                <p class="text-xs @(MainLayout.IsDarkMode ? "text-zinc-400" : "text-gray-500")">Manage school shifts, time-in windows, and academic calendar hours.</p>
             </a>
         </div>
+
     </div>
-
-    <!-- Quick Stats Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold">👥</div>
-            <div>
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Registered</p>
-                <h3 class="text-2xl font-bold text-gray-800">@(IsLoading ? "..." : TotalUsers.ToString())</h3>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold">✅</div>
-            <div>
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Logs Today</p>
-                <h3 class="text-2xl font-bold text-gray-800">@(IsLoading ? "..." : TotalLogsToday.ToString())</h3>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl font-bold">🎓</div>
-            <div>
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Students Active</p>
-                <h3 class="text-2xl font-bold text-gray-800">Active</h3>
-            </div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-            <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl font-bold">🛡️</div>
-            <div>
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Guard Status</p>
-                <h3 class="text-2xl font-bold text-emerald-600 text-base mt-1">Monitoring Online</h3>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Navigation Shortcuts Section -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <a href="register" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
-            <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">👤</div>
-            <h3 class="font-bold text-gray-800 mb-1">Register New User</h3>
-            <p class="text-xs text-gray-500">Enroll new students, faculty members, or staff into the RFID/NFC system database.</p>
-        </a>
-
-        <a href="guard-monitor" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
-            <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">🛡️</div>
-            <h3 class="font-bold text-gray-800 mb-1">Live Guard Monitor</h3>
-            <p class="text-xs text-gray-500">Real-time live feed of campus entry and exits for security personnel.</p>
-        </a>
-
-        <a href="schedule" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-indigo-500 hover:shadow-md transition-all group">
-            <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-lg mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">📅</div>
-            <h3 class="font-bold text-gray-800 mb-1">Campus Schedule</h3>
-            <p class="text-xs text-gray-500">Manage school shifts, time-in windows, and academic calendar hours.</p>
-        </a>
-    </div>
-
 </div>
 
 @code {
     private bool IsLoading { get; set; } = true;
     private int TotalUsers { get; set; } = 0;
     private int TotalLogsToday { get; set; } = 0;
+
+    private string CardStyleClass => MainLayout.IsDarkMode 
+        ? "bg-zinc-900/90 backdrop-blur p-6 rounded-2xl shadow-sm border border-zinc-800" 
+        : "bg-white p-6 rounded-2xl shadow-sm border border-gray-100";
 
     protected override async Task OnInitializedAsync()
     {

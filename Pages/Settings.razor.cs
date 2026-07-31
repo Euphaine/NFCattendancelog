@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using System.Net.Http.Json;
-using AttendanceSystem.Models;
 
 namespace AttendanceSystem.Pages
 {
@@ -8,32 +7,60 @@ namespace AttendanceSystem.Pages
     {
         [Inject] public HttpClient Http { get; set; } = default!;
 
-        protected CampusSettingsModel ScheduleModel { get; set; } = new();
-        protected string? StatusMessage { get; set; }
-        protected bool IsSuccess { get; set; } = false;
-        protected bool IsSaving { get; set; } = false;
+        protected string[] Levels = { "College", "Senior High School", "Junior High School", "Elementary" };
+        protected string SelectedLevel = "College";
+        protected Dictionary<string, ScheduleModel> AllSettings = new();
+        protected ScheduleModel CurrentModel = new();
+        protected string? StatusMessage;
+        protected bool IsSuccess, IsSaving;
 
         protected override async Task OnInitializedAsync()
         {
             await LoadSettings();
         }
 
-        private async Task LoadSettings()
+        protected async Task LoadSettings()
         {
             try
             {
-                var response = await Http.GetFromJsonAsync<SettingsApiResponse>("http://localhost/attendance-api/settings.php");
-                if (response != null && response.Success)
+                var res = await Http.GetFromJsonAsync<ApiResponse>("http://localhost/attendance-api/settings.php");
+                if (res != null && res.Data != null)
                 {
-                    ScheduleModel.OpeningTime = response.OpeningTime;
-                    ScheduleModel.LateThresholdTime = response.LateThresholdTime;
-                    ScheduleModel.ClosingTime = response.ClosingTime;
+                    foreach (var item in res.Data)
+                    {
+                        AllSettings[item.EducationalLevel] = item;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error loading settings: {ex.Message}";
-                IsSuccess = false;
+                StatusMessage = "Error loading settings: " + ex.Message;
+            }
+            UpdateCurrentModel();
+        }
+
+        protected void SelectLevel(string level)
+        {
+            SelectedLevel = level;
+            UpdateCurrentModel();
+        }
+
+        protected void UpdateCurrentModel()
+        {
+            if (AllSettings.ContainsKey(SelectedLevel))
+            {
+                CurrentModel = AllSettings[SelectedLevel];
+            }
+            else
+            {
+                CurrentModel = new ScheduleModel 
+                { 
+                    EducationalLevel = SelectedLevel, 
+                    OpeningTime = new TimeOnly(7, 0), 
+                    LateThresholdTime = new TimeOnly(7, 45), 
+                    ClosingTime = new TimeOnly(17, 0), 
+                    ThresholdEnabled = true 
+                };
             }
         }
 
@@ -41,32 +68,53 @@ namespace AttendanceSystem.Pages
         {
             IsSaving = true;
             StatusMessage = null;
-
             try
             {
-                var response = await Http.PostAsJsonAsync("http://localhost/attendance-api/settings.php", ScheduleModel);
-                var result = await response.Content.ReadFromJsonAsync<SettingsApiResponse>();
+                CurrentModel.EducationalLevel = SelectedLevel;
+                var response = await Http.PostAsJsonAsync("http://localhost/attendance-api/settings.php", CurrentModel);
+                var result = await response.Content.ReadFromJsonAsync<BasicResponse>();
 
-                if (response.IsSuccessStatusCode && result != null && result.Success)
+                if (result != null && result.Success)
                 {
-                    StatusMessage = "Campus schedule settings updated successfully!";
+                    StatusMessage = $"{SelectedLevel} settings saved successfully!";
                     IsSuccess = true;
                 }
                 else
                 {
-                    StatusMessage = result?.Message ?? "Failed to update settings.";
+                    StatusMessage = result?.Message ?? "Failed to save.";
                     IsSuccess = false;
                 }
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error saving settings: {ex.Message}";
+                StatusMessage = "Error: " + ex.Message;
                 IsSuccess = false;
             }
             finally
             {
                 IsSaving = false;
             }
+        }
+
+        public class ScheduleModel
+        {
+            public string EducationalLevel { get; set; } = "College";
+            public TimeOnly OpeningTime { get; set; } = new TimeOnly(7, 0);
+            public TimeOnly LateThresholdTime { get; set; } = new TimeOnly(7, 45);
+            public TimeOnly ClosingTime { get; set; } = new TimeOnly(17, 0);
+            public bool ThresholdEnabled { get; set; } = true;
+        }
+
+        public class ApiResponse 
+        { 
+            public bool Success { get; set; } 
+            public List<ScheduleModel> Data { get; set; } = new(); 
+        }
+
+        public class BasicResponse 
+        { 
+            public bool Success { get; set; } 
+            public string? Message { get; set; } 
         }
     }
 }

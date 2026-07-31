@@ -1,56 +1,68 @@
 @page "/reports"
-@inject HttpClient Http
-@inject IJSRuntime JS
 
-<div class="p-6 max-w-7xl mx-auto space-y-6">
-    <!-- Header & Controls -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="p-6 max-w-7xl mx-auto space-y-6 report-container">
+    <!-- Header & Controls (Hidden during print) -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
         <div>
             <h1 class="text-2xl font-extrabold text-gray-800">Attendance & Activity Reports</h1>
-            <p class="text-sm text-gray-500 mt-1">Filter, review, and export detailed gate logs and user information.</p>
+            <p class="text-sm text-gray-500 mt-1">Filter, review, export detailed logs, or generate emergency headcount sheets.</p>
         </div>
-        
+
         <div class="flex flex-wrap items-center gap-3">
-            <button @onclick="ExportToExcel" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm flex items-center gap-2 transition-all">
-                📥 Export Detailed .XLS
+            <button @onclick="PrintReport" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-2">
+                🖨️ Print / Emergency Report
+            </button>
+            <button @onclick="ExportToExcel" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-2">
+                📊 Export Detailed .XLS
             </button>
         </div>
     </div>
 
-    <!-- Filter Bar -->
-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+    <!-- Filters Section (Hidden during print) -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-5 gap-4 items-end no-print">
         <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Search Name / ID</label>
-            <input type="text" @bind="SearchQuery" placeholder="Search..." class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50/50" />
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Search Name / ID</label>
+            <input type="text" @bind="SearchQuery" @bind:event="oninput" placeholder="Search..." 
+                   class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white text-gray-800 font-medium placeholder-gray-400" />
         </div>
+
         <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Role Filter</label>
-            <select @bind="SelectedRole" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50/50">
-                <option value="All">All Roles</option>
-                <option value="Student">Student</option>
-                <option value="Teacher">Teacher</option>
-                <option value="Staff">Staff</option>
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Role Filter</label>
+            <select @bind="SelectedRole" class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white text-gray-800 font-medium">
+                <option value="All" class="bg-white text-gray-800">All Roles</option>
+                <option value="Student" class="bg-white text-gray-800">Student</option>
+                <option value="Teacher" class="bg-white text-gray-800">Teacher</option>
+                <option value="Staff" class="bg-white text-gray-800">Staff</option>
             </select>
         </div>
+
         <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Start Date</label>
-            <input type="date" @bind="StartDate" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50/50" />
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Start Date</label>
+            <input type="date" @bind="StartDate" 
+                   class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white text-gray-800 font-medium" />
         </div>
-        <div class="flex items-end gap-2">
-            <div class="flex-1">
-                <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">End Date</label>
-                <input type="date" @bind="EndDate" class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50/50" />
-            </div>
-            <button @onclick="LoadReports" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-all h-[38px]">
+
+        <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">End Date</label>
+            <input type="date" @bind="EndDate" 
+                   class="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white text-gray-800 font-medium" />
+        </div>
+
+        <div>
+            <button @onclick="LoadReports" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
                 Filter
             </button>
         </div>
     </div>
 
-    <!-- Detailed Reports Table -->
+    <!-- Reports Table Container -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-4 border-b bg-gray-50/50 flex justify-between items-center">
+            <span class="font-bold text-gray-700">Total Logs Found: <span class="text-indigo-600">@ReportList.Count</span></span>
+        </div>
+
         <div class="overflow-x-auto">
-            <table id="reportsTable" class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gray-100/60 text-xs font-bold uppercase tracking-wider text-gray-500 border-b">
                         <th class="p-4">School ID</th>
@@ -67,47 +79,45 @@
                 <tbody class="divide-y divide-gray-100 text-sm">
                     @if (IsLoading)
                     {
-                        <tr><td colspan="9" class="p-8 text-center text-gray-400">Loading detailed reports...</td></tr>
+                        <tr>
+                            <td colspan="9" class="p-8 text-center text-gray-400">Loading attendance reports...</td>
+                        </tr>
                     }
                     else if (ReportList.Any())
                     {
-                        @foreach (var r in ReportList)
+                        @foreach (var report in ReportList)
                         {
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="p-4 font-mono font-bold text-gray-800">@r.SchoolId</td>
-                                <td class="p-4 font-bold text-gray-900">@r.FullName</td>
+                                <td class="p-4 font-mono font-bold text-gray-800">@report.SchoolId</td>
+                                <td class="p-4 font-bold text-gray-900">@report.FullName</td>
                                 <td class="p-4">
-                                    <span class="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">@r.Role</span>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold @GetRoleBadgeClass(report.Role)">
+                                        @report.Role
+                                    </span>
                                 </td>
                                 <td class="p-4 text-gray-600 text-xs space-y-0.5">
-                                    @if (!string.IsNullOrEmpty(r.EducationalLevel)) { <div><strong>Level:</strong> @r.EducationalLevel</div> }
-                                    @if (!string.IsNullOrEmpty(r.Department)) { <div><strong>Dept:</strong> @r.Department</div> }
-                                    @if (!string.IsNullOrEmpty(r.Course)) { <div><strong>Course:</strong> @r.Course</div> }
-                                    @if (!string.IsNullOrEmpty(r.YearLevel)) { <div><strong>Year:</strong> @r.YearLevel</div> }
-                                    @if (string.IsNullOrEmpty(r.EducationalLevel) && string.IsNullOrEmpty(r.Department) && string.IsNullOrEmpty(r.Course)) { <span>—</span> }
+                                    <div>Lvl: @(string.IsNullOrEmpty(report.EducationalLevel) ? "—" : report.EducationalLevel)</div>
+                                    <div>Dept: @(string.IsNullOrEmpty(report.Department) ? "—" : report.Department)</div>
+                                    <div>Course: @(string.IsNullOrEmpty(report.Course) ? "—" : report.Course)</div>
+                                    <div>Yr: @(string.IsNullOrEmpty(report.YearLevel) ? "—" : report.YearLevel)</div>
                                 </td>
                                 <td class="p-4">
-                                    @if (r.Status == "ON Campus" || r.TimeOut == "—")
-                                    {
-                                        <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">🟢 ON Campus</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">⚪ OFF Campus</span>
-                                    }
+                                    <span class="px-2.5 py-1 rounded-md text-xs font-bold @GetStatusBadgeClass(report.Status)">
+                                        @report.Status
+                                    </span>
                                 </td>
-                                <td class="p-4 font-mono text-xs text-gray-600">@r.LogDate</td>
-                                <td class="p-4 font-mono text-xs text-emerald-700 font-semibold">@r.TimeIn</td>
-                                <td class="p-4 font-mono text-xs text-gray-500">@r.TimeOut</td>
-                                <td class="p-4">
-                                    <span class="text-xs font-semibold @(r.Punctuality == "LATE" ? "text-amber-600" : "text-emerald-600")">@r.Punctuality</span>
-                                </td>
+                                <td class="p-4 text-gray-600">@report.LogDate</td>
+                                <td class="p-4 font-mono text-emerald-600 font-semibold">@(string.IsNullOrEmpty(report.TimeIn) ? "—" : report.TimeIn)</td>
+                                <td class="p-4 font-mono text-gray-500">@(string.IsNullOrEmpty(report.TimeOut) ? "—" : report.TimeOut)</td>
+                                <td class="p-4 font-semibold text-gray-700">@report.Punctuality</td>
                             </tr>
                         }
                     }
                     else
                     {
-                        <tr><td colspan="9" class="p-8 text-center text-gray-400">No report records found for the selected criteria.</td></tr>
+                        <tr>
+                            <td colspan="9" class="p-8 text-center text-gray-400">No attendance reports found matching your criteria.</td>
+                        </tr>
                     }
                 </tbody>
             </table>
@@ -116,117 +126,18 @@
 </div>
 
 @code {
-    private List<ReportModel> ReportList = new();
-    private bool IsLoading = true;
-    private string SearchQuery = "";
-    private string SelectedRole = "All";
-    private DateTime? StartDate = null;
-    private DateTime? EndDate = null;
-
-    protected override async Task OnInitializedAsync()
+    private string GetRoleBadgeClass(string role) => role switch
     {
-        await LoadReports();
-    }
+        "Student" => "bg-blue-100 text-blue-800",
+        "Teacher" => "bg-purple-100 text-purple-800",
+        "Staff" => "bg-emerald-100 text-emerald-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
 
-    private async Task LoadReports()
+    private string GetStatusBadgeClass(string status) => status switch
     {
-        IsLoading = true;
-        try
-        {
-            string url = $"http://localhost/attendance-api/get_reports.php?role={SelectedRole}&search={Uri.EscapeDataString(SearchQuery)}";
-            if (StartDate.HasValue) url += $"&startDate={StartDate.Value:yyyy-MM-dd}";
-            if (EndDate.HasValue) url += $"&endDate={EndDate.Value:yyyy-MM-dd}";
-
-            var response = await Http.GetFromJsonAsync<ReportApiResponse>(url);
-            if (response != null && response.Success)
-            {
-                ReportList = response.Data ?? new();
-            }
-        }
-        catch
-        {
-            ReportList = new();
-        }
-        IsLoading = false;
-    }
-
-    private async Task ExportToExcel()
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.Append("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>");
-        sb.Append("<head><meta http-equiv='content-type' content='text/html; charset=UTF-8'>");
-        sb.Append("<style>");
-        sb.Append("body { font-family: Arial, sans-serif; }");
-        sb.Append("table { border-collapse: collapse; width: 100%; margin-top: 10px; }");
-        sb.Append("th { background-color: #1e3a8a; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #d1d5db; text-align: left; font-size: 11pt; }");
-        sb.Append("td { padding: 8px 10px; border: 1px solid #d1d5db; vertical-align: middle; font-size: 10pt; color: #374151; }");
-        sb.Append(".status-on { background-color: #d1fae5; color: #065f46; font-weight: bold; text-align: center; }");
-        sb.Append(".status-off { background-color: #ffedd5; color: #9a3412; font-weight: bold; text-align: center; }");
-        sb.Append(".text-center { text-align: center; }");
-        sb.Append("</style></head><body>");
-        sb.Append("<div style='font-size: 16px; font-weight: bold; margin-bottom: 5px; color: #1f2937;'>Official Attendance & Activity Report</div>");
-        sb.Append("<div style='font-size: 9pt; color: #6b7280; margin-bottom: 15px;'>Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "</div>");
-        sb.Append("<table><thead><tr>");
-        sb.Append("<th>School ID</th><th>Full Name</th><th>Role</th><th>Educational Level</th><th>Department</th><th>Course</th><th>Year Level</th><th>Status</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Punctuality</th>");
-        sb.Append("</tr></thead><tbody>");
-
-        foreach (var r in ReportList)
-        {
-            bool isOnCampus = r.Status == "ON Campus" || r.TimeOut == "—";
-            string statusClass = isOnCampus ? "status-on" : "status-off";
-            string statusText = isOnCampus ? "ON CAMPUS" : "OFF CAMPUS";
-
-            sb.Append("<tr>");
-            sb.Append($"<td style='mso-number-format:\"\\@\";'>{r.SchoolId}</td>");
-            sb.Append($"<td>{r.FullName}</td>");
-            sb.Append($"<td>{r.Role}</td>");
-            sb.Append($"<td>{r.EducationalLevel}</td>");
-            sb.Append($"<td>{r.Department}</td>");
-            sb.Append($"<td>{r.Course}</td>");
-            sb.Append($"<td>{r.YearLevel}</td>");
-            sb.Append($"<td class='{statusClass}'>{statusText}</td>");
-            sb.Append($"<td class='text-center'>{r.LogDate}</td>");
-            sb.Append($"<td class='text-center'>{r.TimeIn}</td>");
-            sb.Append($"<td class='text-center'>{r.TimeOut}</td>");
-            sb.Append($"<td class='text-center'>{r.Punctuality}</td>");
-            sb.Append("</tr>");
-        }
-
-        sb.Append("</tbody></table></body></html>");
-
-        string excelContent = sb.ToString();
-        var encodedUri = "data:application/vnd.ms-excel;charset=utf-8," + Uri.EscapeDataString(excelContent);
-        
-        await JS.InvokeVoidAsync("eval", $@"
-            let a = document.createElement('a');
-            a.href = '{encodedUri}';
-            a.download = 'Official_Attendance_Report_' + new Date().toISOString().slice(0,10) + '.xls';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        ");
-    }
-    public class ReportApiResponse
-    {
-        public bool Success { get; set; }
-        public List<ReportModel> Data { get; set; } = new();
-    }
-
-    public class ReportModel
-    {
-        public int Id { get; set; }
-        public string SchoolId { get; set; } = string.Empty;
-        public string FullName { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
-        public string Department { get; set; } = string.Empty;
-        public string Course { get; set; } = string.Empty;
-        public string EducationalLevel { get; set; } = string.Empty;
-        public string YearLevel { get; set; } = string.Empty;
-        public string LogDate { get; set; } = string.Empty;
-        public string TimeIn { get; set; } = string.Empty;
-        public string TimeOut { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public string Punctuality { get; set; } = string.Empty;
-        public string Remarks { get; set; } = string.Empty;
-    }
+        "ON Campus" or "On Campus" => "bg-emerald-100 text-emerald-800",
+        "OFF Campus" or "Off Campus" => "bg-amber-100 text-amber-800",
+        _ => "bg-gray-100 text-gray-800"
+    };
 }

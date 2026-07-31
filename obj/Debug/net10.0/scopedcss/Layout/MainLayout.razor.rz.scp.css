@@ -21,20 +21,20 @@ main[b-gizvgoz0k3] {
     align-items: center;
 }
 
-    .top-row[b-gizvgoz0k3]  a, .top-row[b-gizvgoz0k3]  .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
-    }
+.top-row[b-gizvgoz0k3]  a, .top-row[b-gizvgoz0k3]  .btn-link {
+    white-space: nowrap;
+    margin-left: 1.5rem;
+    text-decoration: none;
+}
 
-    .top-row[b-gizvgoz0k3]  a:hover, .top-row[b-gizvgoz0k3]  .btn-link:hover {
-        text-decoration: underline;
-    }
+.top-row[b-gizvgoz0k3]  a:hover, .top-row[b-gizvgoz0k3]  .btn-link:hover {
+    text-decoration: underline;
+}
 
-    .top-row[b-gizvgoz0k3]  a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+.top-row[b-gizvgoz0k3]  a:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 @media (max-width: 640.98px) {
     .top-row[b-gizvgoz0k3] {
@@ -73,5 +73,22 @@ main[b-gizvgoz0k3] {
     .top-row[b-gizvgoz0k3], article[b-gizvgoz0k3] {
         padding-left: 2rem !important;
         padding-right: 1.5rem !important;
+    }
+}
+
+/* Enhanced AI Gradient Glowing Effect for High Visibility */
+.ai-glow-logo[b-gizvgoz0k3] {
+    filter: drop-shadow(0 0 25px rgba(251, 191, 36, 0.45)) drop-shadow(0 0 50px rgba(59, 130, 246, 0.4)) contrast(120%);
+    animation: aiPulse-b-gizvgoz0k3 5s ease-in-out infinite alternate;
+}
+
+@keyframes aiPulse-b-gizvgoz0k3 {
+    0% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.4)) drop-shadow(0 0 40px rgba(59, 130, 246, 0.35)) contrast(120%);
+    }
+    100% {
+        transform: scale(1.04);
+        filter: drop-shadow(0 0 40px rgba(251, 191, 36, 0.65)) drop-shadow(0 0 70px rgba(59, 130, 246, 0.6)) contrast(130%);
     }
 }
