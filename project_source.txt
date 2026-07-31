@@ -1,0 +1,2230 @@
+<?php
+// Set PHP timezone to local time (Philippines / Asia Manila UTC+8)
+date_default_timezone_set('Asia/Manila');
+
+// Allow cross-origin requests from Blazor WASM
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Content-Type: application/json; charset=UTF-8");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+$host = "localhost";
+$db_name = "attendance_db";
+$username = "root";
+$password = "";
+
+try {
+    $pdo = new PDO("mysql:host=" . $host . ";dbname=" . $db_name, $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    // Sync MySQL session timezone with PHP (+08:00 for Manila/PST)
+    $pdo->exec("SET time_zone = '+08:00';");
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(["success" => false, "message" => "Database connection failed: " . $e->getMessage()]);
+    exit();
+}
+?>
+<?php
+// api/dashboard_stats.php
+require_once 'config.php';
+
+try {
+    // Get total registered users
+    $userStmt = $pdo->query("SELECT COUNT(*) as total FROM users");
+    $totalUsers = $userStmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+    // Get total logs for today
+    $today = date('Y-m-d');
+    $logStmt = $pdo->prepare("SELECT COUNT(*) as total FROM attendancelogs WHERE DATE(TimeIn) = :today");
+    $logStmt->execute([':today' => $today]);
+    $totalLogsToday = $logStmt->fetch(PDO::FETCH_ASSOC)['total'];
+
+    echo json_encode([
+        "success" => true,
+        "totalUsers" => (int)$totalUsers,
+        "totalLogsToday" => (int)$totalLogsToday
+    ]);
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(["success" => false, "message" => $e->getMessage()]);
+}
+?>
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+date_default_timezone_set('Asia/Manila');
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json; charset=UTF-8");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+try {
+    $conn = new mysqli("localhost", "root", "", "attendance_db");
+    if ($conn->connect_error) {
+        throw new Exception("Database connection error");
+    }
+
+    // Sorting by greatest ID or latest timestamp ensures the most recent scan is always at the top
+    $sql = "SELECT 
+                l.Id,
+                l.UserId,
+                l.LogDate,
+                l.TimeIn,
+                l.TimeOut,
+                l.ActionStatus,
+                l.Punctuality,
+                l.Status,
+                l.Remarks,
+                CONCAT(COALESCE(u.FirstName,''), ' ', COALESCE(u.LastName,'')) AS FullName,
+                u.Role,
+                u.SchoolId,
+                u.Department,
+                u.Course,
+                u.EducationalLevel,
+                COALESCE(u.YearLevel, '') AS YearLevel
+            FROM attendancelogs l
+            LEFT JOIN users u ON l.UserId = u.Id
+            ORDER BY GREATEST(COALESCE(l.TimeIn, '0000-00-00 00:00:00'), COALESCE(l.TimeOut, '0000-00-00 00:00:00')) DESC, l.Id DESC 
+            LIMIT 50";
+
+    $result = $conn->query($sql);
+    $logs = [];
+
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $timeInFormatted = (!empty($row['TimeIn']) && $row['TimeIn'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeIn'])) : '—';
+            $timeOutFormatted = (!empty($row['TimeOut']) && $row['TimeOut'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeOut'])) : '—';
+
+            $logs[] = [
+                "id" => (int)$row['Id'],
+                "fullName" => trim($row['FullName']),
+                "schoolId" => $row['SchoolId'] ?? '',
+                "role" => $row['Role'] ?? 'Student',
+                "department" => $row['Department'] ?? '',
+                "course" => $row['Course'] ?? '',
+                "educationalLevel" => $row['EducationalLevel'] ?? '',
+                "yearLevel" => $row['YearLevel'] ?? '',
+                "logDate" => $row['LogDate'] ?? '',
+                "timeIn" => $timeInFormatted,
+                "timeOut" => $timeOutFormatted,
+                "actionStatus" => $row['ActionStatus'] ?? 'ENTRY',
+                "punctuality" => $row['Punctuality'] ?? '',
+                "status" => $row['Status'] ?? 'ON Campus',
+                "remarks" => $row['Remarks'] ?? ''
+            ];
+        }
+    }
+
+    echo json_encode(["success" => true, "logs" => $logs]);
+    $conn->close();
+
+} catch (Exception $e) {
+    echo json_encode(["success" => false, "message" => $e->getMessage(), "logs" => []]);
+}
+?>
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+date_default_timezone_set('Asia/Manila');
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json; charset=UTF-8");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+try {
+    $conn = new mysqli("localhost", "root", "", "attendance_db");
+
+    if ($conn->connect_error) {
+        throw new Exception("Database connection error");
+    }
+
+    $role = $_GET['role'] ?? 'All';
+    $search = $_GET['search'] ?? '';
+    $startDate = $_GET['startDate'] ?? '';
+    $endDate = $_GET['endDate'] ?? '';
+
+    $sql = "SELECT 
+                l.Id,
+                l.UserId,
+                l.LogDate,
+                l.TimeIn,
+                l.TimeOut,
+                l.ActionStatus,
+                l.Punctuality,
+                l.Status,
+                l.Remarks,
+                CONCAT(COALESCE(u.FirstName,''), ' ', COALESCE(u.LastName,'')) AS FullName,
+                u.Role,
+                u.SchoolId,
+                u.Department,
+                u.Course,
+                u.EducationalLevel,
+                COALESCE(u.YearLevel, '') AS YearLevel
+            FROM attendancelogs l
+            LEFT JOIN users u ON l.UserId = u.Id
+            WHERE 1=1";
+
+    $params = [];
+    $types = "";
+
+    if ($role !== 'All') {
+        $sql .= " AND u.Role = ?";
+        $params[] = $role;
+        $types .= "s";
+    }
+
+    if (!empty($search)) {
+        $sql .= " AND (u.SchoolId LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $types .= "sss";
+    }
+
+    if (!empty($startDate) && !empty($endDate)) {
+        $sql .= " AND l.LogDate BETWEEN ? AND ?";
+        $params[] = $startDate;
+        $params[] = $endDate;
+        $types .= "ss";
+    }
+
+    // Default sorting order optimized for tracking latest entries / emergency checks
+    $sql .= " ORDER BY GREATEST(COALESCE(l.TimeIn, '0000-00-00 00:00:00'), COALESCE(l.TimeOut, '0000-00-00 00:00:00')) DESC, l.Id DESC LIMIT 500";
+
+    $stmt = $conn->prepare($sql);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $reports = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $reports[] = [
+            "id" => (int)$row['Id'],
+            "schoolId" => $row['SchoolId'] ?? '',
+            "fullName" => trim($row['FullName']),
+            "role" => $row['Role'] ?? 'Student',
+            "department" => $row['Department'] ?? '',
+            "course" => $row['Course'] ?? '',
+            "educationalLevel" => $row['EducationalLevel'] ?? '',
+            "yearLevel" => $row['YearLevel'] ?? '',
+            "logDate" => $row['LogDate'] ?? '',
+            "timeIn" => (!empty($row['TimeIn']) && $row['TimeIn'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeIn'])) : '—',
+            "timeOut" => (!empty($row['TimeOut']) && $row['TimeOut'] !== '0000-00-00 00:00:00') ? date("h:i:s A", strtotime($row['TimeOut'])) : '—',
+            "status" => $row['Status'] ?? 'ON Campus',
+            "punctuality" => $row['Punctuality'] ?? 'ON TIME',
+            "remarks" => $row['Remarks'] ?? ''
+        ];
+    }
+
+    echo json_encode(["success" => true, "data" => $reports]);
+    $stmt->close();
+    $conn->close();
+
+} catch (Exception $e) {
+    http_response_code(200);
+    echo json_encode(["success" => false, "message" => $e->getMessage(), "data" => []]);
+}
+?>
+<?php
+// api/manage_users.php
+require_once 'config.php';
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+try {
+    if ($method === 'GET') {
+        $role = $_GET['role'] ?? 'All';
+        $search = $_GET['search'] ?? '';
+
+        $sql = "SELECT Id, SchoolId, NfcTagId, Role, FirstName, LastName, Suffix, Department, EducationalLevel, Course, YearLevel, CreatedAt FROM users WHERE 1=1";
+        $params = [];
+
+        if ($role !== 'All') {
+            $sql .= " AND Role = :role";
+            $params[':role'] = $role;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (SchoolId LIKE :search OR FirstName LIKE :search OR LastName LIKE :search OR NfcTagId LIKE :search)";
+            $params[':search'] = "%$search%";
+        }
+
+        $sql .= " ORDER BY CreatedAt DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            "success" => true,
+            "data" => $users
+        ]);
+    } 
+    elseif ($method === 'DELETE') {
+        $id = $_GET['id'] ?? null;
+
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "User ID is required"]);
+            exit();
+        }
+
+        $stmt = $pdo->prepare("DELETE FROM users WHERE Id = :id");
+        $stmt->execute([':id' => $id]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "User deleted successfully"
+        ]);
+    }
+    elseif ($method === 'PUT') {
+        $data = json_decode(file_get_contents("php://input"), true);
+
+        if (!isset($data['Id'])) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "message" => "User ID is required for updating"]);
+            exit();
+        }
+
+        $stmt = $pdo->prepare("UPDATE users SET SchoolId = :schoolId, NfcTagId = :nfcTagId, Role = :role, FirstName = :firstName, LastName = :lastName, Suffix = :suffix, Department = :department, EducationalLevel = :educationalLevel, Course = :course, YearLevel = :yearLevel WHERE Id = :id");
+        
+        $stmt->execute([
+            ':id' => $data['Id'],
+            ':schoolId' => $data['SchoolId'],
+            ':nfcTagId' => $data['NfcTagId'],
+            ':role' => $data['Role'],
+            ':firstName' => $data['FirstName'],
+            ':lastName' => $data['LastName'],
+            ':suffix' => !empty($data['Suffix']) ? $data['Suffix'] : null,
+            ':department' => !empty($data['Department']) ? $data['Department'] : null,
+            ':educationalLevel' => !empty($data['EducationalLevel']) ? $data['EducationalLevel'] : null,
+            ':course' => !empty($data['Course']) ? $data['Course'] : null,
+            ':yearLevel' => !empty($data['YearLevel']) ? $data['YearLevel'] : null,
+        ]);
+
+        echo json_encode(["success" => true, "message" => "User updated successfully"]);
+    }
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+}
+?>
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+date_default_timezone_set('Asia/Manila');
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json; charset=UTF-8");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Helper to convert empty/whitespace strings into true NULL for clean DB entries
+function cleanInput($val) {
+    $v = trim($val ?? '');
+    return ($v === '' || $v === 'null') ? null : $v;
+}
+
+try {
+    $conn = new mysqli("localhost", "root", "", "attendance_db");
+
+    if ($conn->connect_error) {
+        throw new Exception("Database connection failed: " . $conn->connect_error);
+    }
+
+    $raw_input = file_get_contents("php://input");
+    $data_raw = json_decode($raw_input, true) ?? [];
+
+    // Convert all array keys to lowercase for seamless binding
+    $data = array_change_key_case($data_raw, CASE_LOWER);
+
+    // Required Fields
+    $schoolId  = cleanInput($data['schoolid'] ?? '');
+    $firstName = cleanInput($data['firstname'] ?? '');
+    $lastName  = cleanInput($data['lastname'] ?? '');
+    $nfcTagId  = cleanInput($data['nfctagid'] ?? '');
+
+    // Role Handling & Smart Fallback
+    $role = cleanInput($data['role'] ?? '');
+    if (!$role) {
+        $role = !empty($data['department'] ?? '') ? 'Teacher' : 'Student';
+    }
+
+    // Optional / Conditional Fields
+    $suffix           = cleanInput($data['suffix'] ?? '');
+    $educationalLevel = cleanInput($data['educationallevel'] ?? '');
+    $department       = cleanInput($data['department'] ?? '');
+    $course           = cleanInput($data['course'] ?? '');
+    $yearLevel        = cleanInput($data['yearlevel'] ?? '');
+
+    // Force clear student fields if user is NOT a student
+    if ($role !== 'Student') {
+        $educationalLevel = null;
+        $course = null;
+        $yearLevel = null;
+    }
+
+    // Validation check
+    if (!$schoolId || !$firstName || !$lastName || !$nfcTagId) {
+        echo json_encode(["success" => false, "message" => "Please fill in all required fields (School ID, First Name, Last Name) and tap an NFC card."]);
+        exit();
+    }
+
+    // 1. Check if School ID already exists
+    $checkSchool = $conn->prepare("SELECT Id FROM users WHERE SchoolId = ?");
+    $checkSchool->bind_param("s", $schoolId);
+    $checkSchool->execute();
+    if ($checkSchool->get_result()->num_rows > 0) {
+        echo json_encode(["success" => false, "message" => "School ID '$schoolId' is already registered to another user!"]);
+        exit();
+    }
+
+    // 2. Check if NFC Tag ID is already assigned
+    $checkNfc = $conn->prepare("SELECT Id FROM users WHERE NfcTagId = ?");
+    $checkNfc->bind_param("s", $nfcTagId);
+    $checkNfc->execute();
+    if ($checkNfc->get_result()->num_rows > 0) {
+        echo json_encode(["success" => false, "message" => "This NFC Tag/Card is already registered to another user!"]);
+        exit();
+    }
+
+    // 3. Insert new user
+    $stmt = $conn->prepare("INSERT INTO users (SchoolId, NfcTagId, Role, FirstName, LastName, Suffix, EducationalLevel, Department, Course, YearLevel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssssssss", $schoolId, $nfcTagId, $role, $firstName, $lastName, $suffix, $educationalLevel, $department, $course, $yearLevel);
+
+    if ($stmt->execute()) {
+        echo json_encode(["success" => true, "message" => "User $firstName $lastName successfully registered!"]);
+    } else {
+        throw new Exception("Execution error: " . $stmt->error);
+    }
+
+    $conn->close();
+
+} catch (Throwable $e) {
+    http_response_code(200);
+    echo json_encode(["success" => false, "message" => $e->getMessage()]);
+}
+?>
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+date_default_timezone_set('Asia/Manila');
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json; charset=UTF-8");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+try {
+    $conn = new mysqli("localhost", "root", "", "attendance_db");
+    if ($conn->connect_error) {
+        throw new Exception("Database connection failed");
+    }
+
+    $data = json_decode(file_get_contents("php://input"), true);
+    $nfcTagId = $data['nfcTagId'] ?? null;
+
+    if (!$nfcTagId) {
+        echo json_encode(["success" => false, "message" => "No NFC tag ID provided"]);
+        exit();
+    }
+
+    // 1. Fetch User
+    $userQuery = $conn->prepare("SELECT * FROM users WHERE NfcTagId = ?");
+    $userQuery->bind_param("s", $nfcTagId);
+    $userQuery->execute();
+    $userResult = $userQuery->get_result();
+
+    if ($userResult->num_rows === 0) {
+        echo json_encode(["success" => false, "message" => "Unregistered NFC Card!"]);
+        exit();
+    }
+
+    $user = $userResult->fetch_assoc();
+    $userId = $user['Id'];
+    $fullName = trim(($user['FirstName'] ?? '') . ' ' . ($user['LastName'] ?? ''));
+    $userRole = $user['Role'] ?? 'Student';
+    $eduLevel = $user['EducationalLevel'] ?? 'College';
+
+    // 2. Fetch Settings
+    $settingQuery = $conn->prepare("SELECT OpeningTime, LateThresholdTime, ThresholdEnabled FROM campussettings WHERE EducationalLevel = ?");
+    $settingQuery->bind_param("s", $eduLevel);
+    $settingQuery->execute();
+    $settingResult = $settingQuery->get_result();
+    
+    $openingTime = "07:00:00";
+    $lateThreshold = "07:45:00";
+    $thresholdEnabled = 1;
+
+    if ($settingRow = $settingResult->fetch_assoc()) {
+        $openingTime = $settingRow['OpeningTime'];
+        $lateThreshold = $settingRow['LateThresholdTime'];
+        $thresholdEnabled = (int)$settingRow['ThresholdEnabled'];
+    }
+
+    $today = date("Y-m-d");
+    $fullNow = date("Y-m-d H:i:s");
+    $currentTimeStr = date("H:i:s");
+
+    // 3. Check latest log for today
+    $logQuery = $conn->prepare("SELECT * FROM attendancelogs WHERE UserId = ? AND LogDate = ? ORDER BY Id DESC LIMIT 1");
+    $logQuery->bind_param("is", $userId, $today);
+    $logQuery->execute();
+    $logResult = $logQuery->get_result();
+    $lastLog = ($logResult && $logResult->num_rows > 0) ? $logResult->fetch_assoc() : null;
+
+$nextAction = (!$lastLog || ($lastLog['ActionStatus'] ?? 'EXIT') === 'EXIT') ? 'ENTRY' : 'EXIT';
+
+    if ($nextAction === 'ENTRY') {
+        $punctuality = "";
+        if (strtolower($userRole) === 'student' && $thresholdEnabled === 1) {
+            if ($currentTimeStr < $openingTime) $punctuality = "EARLY";
+            elseif ($currentTimeStr > $lateThreshold) $punctuality = "LATE";
+            else $punctuality = "ON TIME";
+        }
+        $remarks = !empty($punctuality) ? ($punctuality === 'LATE' ? "Late" : "On Time") : "Present";
+
+        $insert = $conn->prepare("INSERT INTO attendancelogs (UserId, NfcTagId, LogDate, TimeIn, TimeOut, Status, Remarks, ActionStatus, Punctuality) VALUES (?, ?, ?, ?, NULL, 'ON Campus', ?, 'ENTRY', ?)");
+        $insert->bind_param("isssss", $userId, $nfcTagId, $today, $fullNow, $remarks, $punctuality);
+        $insert->execute();
+
+        $customMessage = "Welcome to Campus! Have a great day! 🎓";
+    } else {
+        // EXIT / TIME OUT
+        $update = $conn->prepare("UPDATE attendancelogs SET TimeOut = ?, Status = 'OFF Campus', ActionStatus = 'EXIT' WHERE Id = ?");
+        $update->bind_param("si", $fullNow, $lastLog['Id']);
+        $update->execute();
+
+        $customMessage = "Goodbye, Ingat sa pag-uwi! 👋";
+    }
+
+    echo json_encode([
+        "success" => true,
+        "userName" => $fullName,
+        "role" => $userRole,
+        "schoolId" => $user['SchoolId'] ?? '',
+        "department" => !empty($user['Department']) ? $user['Department'] : ($user['Course'] ?? ''),
+        "yearLevel" => $user['YearLevel'] ?? '',
+        "actionStatus" => $nextAction,
+        "punctuality" => $lastLog['Punctuality'] ?? ($punctuality ?? ''),
+        "message" => $customMessage,
+        "timestamp" => date("h:i A")
+    ]);
+
+    $conn->close();
+} catch (Throwable $e) {
+    echo json_encode(["success" => false, "message" => "Error: " . $e->getMessage()]);
+}
+?>
+<?php
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+$conn = new mysqli("localhost", "root", "", "attendance_db");
+if ($conn->connect_error) {
+    echo json_encode(["success" => false, "message" => "Database connection failed"]);
+    exit();
+}
+
+// GET REQUEST: Load all settings or a specific level
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $result = $conn->query("SELECT EducationalLevel, OpeningTime, LateThresholdTime, ClosingTime, ThresholdEnabled FROM campussettings");
+    $settings = [];
+    while ($row = $result->fetch_assoc()) {
+        $settings[] = [
+            "educationalLevel" => $row['EducationalLevel'],
+            "openingTime" => $row['OpeningTime'],
+            "lateThresholdTime" => $row['LateThresholdTime'],
+            "closingTime" => $row['ClosingTime'],
+            "thresholdEnabled" => (bool)$row['ThresholdEnabled']
+        ];
+    }
+    echo json_encode(["success" => true, "data" => $settings]);
+    exit();
+}
+
+// POST REQUEST: Save settings per level
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    $level = $data['educationalLevel'] ?? 'College';
+    $opening = $data['openingTime'] ?? null;
+    $late = $data['lateThresholdTime'] ?? null;
+    $closing = $data['closingTime'] ?? null;
+    $enabled = isset($data['thresholdEnabled']) ? (int)$data['thresholdEnabled'] : 1;
+
+    $stmt = $conn->prepare("UPDATE campussettings SET OpeningTime = ?, LateThresholdTime = ?, ClosingTime = ?, ThresholdEnabled = ?, UpdatedAt = NOW() WHERE EducationalLevel = ?");
+    $stmt->bind_param("sssis", $opening, $late, $closing, $enabled, $level);
+
+    if ($stmt->execute()) {
+        echo json_encode(["success" => true, "message" => "Settings for $level updated successfully"]);
+    } else {
+        echo json_encode(["success" => false, "message" => "Failed to update settings"]);
+    }
+    $stmt->close();
+    exit();
+}
+?>
+flowchart TD
+    A([Initial State]) --> B[Receive NFC Scan Event]
+    B --> C{Verify User Existence}
+    C -- Invalid --> D[Log Exception & Terminate]
+    C -- Valid --> E[Evaluate Campus Settings & Time Rules]
+    E --> F[Update Presence State]
+    F --> G[Commit Transaction to Database]
+    G --> H([Final State])
+classDiagram
+    class User {
+        +int Id
+        +string SchoolId
+        +string NfcTagId
+        +string Role
+        +registerUser()
+        +updateProfile()
+    }
+
+    class AttendanceLog {
+        +int Id
+        +int UserId
+        +datetime TimeIn
+        +datetime TimeOut
+        +string Status
+        +recordScan()
+    }
+
+    class CampusSettings {
+        +int Id
+        +time OpeningTime
+        +time LateThresholdTime
+        +updateThresholds()
+    }
+
+    User "1" --> "*" AttendanceLog : generates
+    CampusSettings "1" --> "*" User : governs
+graph TB
+    subgraph Presentation Layer
+        UI[Web Admin Dashboard]
+        Terminal[NFC Kiosk Interface]
+    end
+
+    subgraph Business Logic Layer
+        Auth[Authentication Module]
+        LogEngine[Attendance Processing Engine]
+        ConfigEngine[Settings Module]
+    end
+
+    subgraph Data Layer
+        DB[(Relational Database)]
+    end
+
+    UI --> Auth
+    UI --> ConfigEngine
+    Terminal --> LogEngine
+    Auth --> DB
+    LogEngine --> DB
+    ConfigEngine --> DB
+graph TD
+    subgraph Client Node
+        Device[NFC Hardware Scanner / Workstation Browser]
+    end
+
+    subgraph Application Server Node
+        Server[Apache / PHP Application Server]
+    end
+
+    subgraph Database Server Node
+        Database[(MariaDB / MySQL Database Server)]
+    end
+
+    Device -->|HTTP / API Requests| Server
+    Server -->|SQL Queries| Database
+erDiagram
+    direction LR
+
+    ADMINISTRATORS {
+        int Id PK
+        string SchoolId UK
+        string Role
+        string Name
+    }
+
+    USERS {
+        int Id PK
+        string SchoolId UK
+        string Role
+    }
+
+    CAMPUS_SETTINGS {
+        int Id PK
+        time OpeningTime
+        time LateThresholdTime
+        time ClosingTime
+        string EducationalLevel
+        boolean ThresholdEnabled
+    }
+
+    ATTENDANCE_LOGS {
+        int Id PK
+        int UserId FK
+        date LogDate
+        string Status
+    }
+
+    ADMINISTRATORS ||--o{ USERS : manages
+    ADMINISTRATORS ||--o{ CAMPUS_SETTINGS : configures
+    ADMINISTRATORS ||--o{ ATTENDANCE_LOGS : audits
+erDiagram
+    direction LR
+    USERS {
+        int Id PK
+        string SchoolId UK
+        string NfcTagId UK
+        string Role
+        string FirstName
+        string LastName
+        string Department
+        string EducationalLevel
+    }
+    ATTENDANCE_LOGS {
+        int Id PK
+        int UserId FK
+        date LogDate
+        datetime TimeIn
+        datetime TimeOut
+        string Status
+        string Punctuality
+    }
+    USERS ||--o{ ATTENDANCE_LOGS : generates
+gantt
+    title Capstone Project Execution Schedule
+    dateFormat  YYYY-MM-DD
+    
+    section Phase I
+    Requirements Analysis      :done, t1, 2026-06-01, 2026-06-07
+    System Architecture Design :done, t2, 2026-06-08, 2026-06-15
+    
+    section Phase II
+    Hardware & NFC Integration :active, t3, 2026-06-16, 2026-07-05
+    Backend API Development    :active, t4, 2026-07-06, 2026-07-25
+    
+    section Phase III
+    Dashboard & UI Implementation :t5, 2026-07-26, 2026-08-15
+    System Testing & Validation   :t6, 2026-08-16, 2026-08-30
+    Final Documentation           :crit, t7, 2026-08-31, 2026-09-10
+sequenceDiagram
+    autonumber
+    actor User
+    participant Terminal as NFC Hardware
+    participant API as Backend Controller
+    participant DB as Database
+
+    User->>Terminal: Tap NFC Tag
+    Terminal->>API: HTTP POST Tag UID
+    API->>DB: Query User & Settings
+    DB-->>API: Return Record
+    API->>DB: Insert / Update Attendance Log
+    DB-->>API: Confirm Transaction
+    API-->>Terminal: Return Status Response
+    Terminal-->>User: Visual / Audio Feedback
+flowchart TD
+    Start([Start]) --> Action{Select Operation}
+    
+    Action -- User Management --> UserIn[/Input User Credentials/] --> SaveUser[(Save to Users Table)] --> End1([End])
+    Action -- Rule Configuration --> ConfigIn[/Update Threshold / Schedule/] --> SaveConfig[(Save to Settings Table)] --> End2([End])
+    Action -- Report Generation --> ReportQuery[(Query Attendance Logs)] --> Export[/Export CSV / View Data/] --> End3([End])
+flowchart TD
+    Start([Start]) --> Input[/Capture NFC Tag UID and Timestamp/]
+    Input --> Query[Query Database for User Profile]
+    Query --> Found{User Valid?}
+    
+    Found -- No --> Error[/Reject Access / Log Failure/] --> End([End])
+    Found -- Yes --> Status{Check Current Status}
+    
+    Status -- ON Campus --> Exit[Record Time-Out & Set OFF Campus] --> Save[(Save to Database)]
+    Status -- OFF Campus --> TimeCheck{Exceeds Late Threshold?}
+    
+    TimeCheck -- Yes --> Late[/Mark as Late/]
+    TimeCheck -- No --> OnTime[/Mark as On Time/]
+    
+    Late --> Entry[Record Time-In & Set ON Campus]
+    OnTime --> Entry
+    
+    Entry --> Save
+    Save --> Success([Grant Access]) --> End
+graph LR
+    direction LR
+    Admin((Administrator)) --> UC1
+    Admin --> UC2
+    Admin --> UC3
+
+    subgraph Attendance System - Admin Portal
+        direction LR
+        UC1[Manage User Accounts]
+        UC2[Configure Campus Settings]
+        UC3[Generate Attendance Reports]
+        UC4[Verify Schedule Thresholds]
+        UC5[Export Reports to CSV]
+
+        UC2 -. "<<include>>" .-> UC4
+        UC3 -. "<<extend>>" .-> UC5
+    end
+graph LR
+    direction LR
+    Student((Student / Staff)) --> UC1
+    NFCReader((NFC Hardware)) --> UC2
+
+    subgraph Attendance System - User Portal
+        direction LR
+        UC1[Process NFC Attendance Scan]
+        UC2[Validate NFC Tag UID]
+        UC3[Record Invalid Scan Failure]
+        UC4[Record Time-In and Time-Out]
+        
+        UC1 -. "<<include>>" .-> UC2
+        UC3 -. "<<extend>>" .-> UC1
+        UC1 -. "<<include>>" .-> UC4
+    end
+namespace AttendanceSystem.Models
+{
+    public class AttendanceLogItem
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public string SchoolId { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string? Department { get; set; }
+        public string? Course { get; set; }
+        public string Status { get; set; } = string.Empty; // "ON Campus" or "OFF Campus"
+        public string FormattedTimeIn { get; set; } = string.Empty;
+        public string FormattedTimeOut { get; set; } = string.Empty;
+    }
+
+    public class LogStats
+    {
+        public int OnCampus { get; set; }
+        public int OffCampus { get; set; }
+        public int TotalToday { get; set; }
+    }
+
+    public class GetLogsResponse
+    {
+        public bool Success { get; set; }
+        public LogStats Stats { get; set; } = new();
+        public List<AttendanceLogItem> Logs { get; set; } = new();
+    }
+}
+namespace AttendanceSystem.Models
+{
+    public class ReportLogItem
+    {
+        public string SchoolId { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string DepartmentCourse { get; set; } = string.Empty;
+        public string LogDate { get; set; } = string.Empty;
+        public string FormattedTimeIn { get; set; } = string.Empty;
+        public string FormattedTimeOut { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+    }
+
+    public class ReportResponse
+    {
+        public bool Success { get; set; }
+        public int Count { get; set; }
+        public List<ReportLogItem> Data { get; set; } = new();
+    }
+}
+namespace AttendanceSystem.Models
+{
+    public class ScanInputModel
+    {
+        public string NfcTagId { get; set; } = string.Empty;
+    }
+
+    public class DisplayModel
+    {
+        public string SchoolId { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Remarks { get; set; } = string.Empty;
+        public string Timestamp { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+    }
+
+    public class ScanRequest
+    {
+        public string NfcTagUid { get; set; } = string.Empty;
+    }
+
+    public class ScanUserResult
+    {
+        public string SchoolId { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string DepartmentCourse { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Remarks { get; set; } = string.Empty;
+        public string Timestamp { get; set; } = string.Empty;
+    }
+
+    public class ScanApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public ScanUserResult? User { get; set; }
+    }
+}
+namespace AttendanceSystem.Models
+{
+    public class CampusSettingsModel
+    {
+        public string OpeningTime { get; set; } = "08:00:00";
+        public string LateThresholdTime { get; set; } = "08:30:00";
+        public string ClosingTime { get; set; } = "17:00:00";
+    }
+
+    public class SettingsApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string OpeningTime { get; set; } = string.Empty;
+        public string LateThresholdTime { get; set; } = string.Empty;
+        public string ClosingTime { get; set; } = string.Empty;
+    }
+}
+namespace AttendanceSystem.Models
+{
+    public class RegisterUserModel
+    {
+        public string NfcTagId { get; set; } = string.Empty;
+        public string SchoolId { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string? Suffix { get; set; }
+        public string Role { get; set; } = "Student";
+        public string Department { get; set; } = string.Empty;
+        public string EducationalLevel { get; set; } = "College";
+        public string Course { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = "1st";
+    }
+
+    public class RegisterApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+}
+// <autogenerated />
+using System;
+using System.Reflection;
+[assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute(".NETCoreApp,Version=v10.0", FrameworkDisplayName = ".NET 10.0")]
+//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was generated by a tool.
+//
+//     Changes to this file may cause incorrect behavior and will be lost if
+//     the code is regenerated.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+using System;
+using System.Reflection;
+
+[assembly: System.Reflection.AssemblyCompanyAttribute("AttendanceSystem")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f9756e7eb22d66f95c9e821111c7fabd6ed977c1")]
+[assembly: System.Reflection.AssemblyProductAttribute("AttendanceSystem")]
+[assembly: System.Reflection.AssemblyTitleAttribute("AttendanceSystem")]
+[assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
+
+// Generated by the MSBuild WriteCodeFragment class.
+
+// <auto-generated/>
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Validation.Embedded;
+global using System;
+global using System.Collections.Generic;
+global using System.IO;
+global using System.Linq;
+global using System.Net.Http;
+global using System.Threading;
+global using System.Threading.Tasks;
+// <auto-generated/>
+namespace Microsoft.CodeAnalysis
+{
+internal sealed partial class EmbeddedAttribute : global::System.Attribute
+{
+}
+}
+// <auto-generated/>
+namespace Microsoft.Extensions.Validation.Embedded
+{
+[global::Microsoft.CodeAnalysis.EmbeddedAttribute]
+[global::System.AttributeUsage(global::System.AttributeTargets.Class)]
+internal sealed class ValidatableTypeAttribute : global::System.Attribute
+{
+}
+}
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
+using System.Net.Http.Json;
+
+namespace AttendanceSystem.Pages
+{
+    public partial class IDScanner : ComponentBase, IAsyncDisposable
+    {
+        [Inject] public HttpClient Http { get; set; } = default!;
+        [Inject] public IJSRuntime JSRuntime { get; set; } = default!;
+
+        protected ElementReference terminalInputRef;
+        protected string ScannedUid { get; set; } = string.Empty;
+        protected string? ScanMessage { get; set; }
+        protected ScanResponseModel? LastScannedUser { get; set; }
+
+        private DotNetObjectReference<IDScanner>? objRef;
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+            {
+                objRef = DotNetObjectReference.Create(this);
+
+                try { await terminalInputRef.FocusAsync(); } catch { }
+
+                try
+                {
+                    await JSRuntime.InvokeAsync<bool>("nfcScanner.startScanning", objRef);
+                }
+                catch
+                {
+                    // Non-mobile browser or HTTP origin
+                }
+            }
+        }
+
+        [JSInvokable]
+        public async Task OnNfcCardScanned(string scannedUid)
+        {
+            ScannedUid = scannedUid;
+            await ProcessAttendanceScan();
+            await InvokeAsync(StateHasChanged);
+        }
+
+        protected async Task HandleKeyUp(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(ScannedUid))
+            {
+                await ProcessAttendanceScan();
+            }
+        }
+
+        private async Task ProcessAttendanceScan()
+        {
+            if (string.IsNullOrWhiteSpace(ScannedUid)) return;
+
+            try
+            {
+                var payload = new { NfcTagId = ScannedUid };
+                var response = await Http.PostAsJsonAsync("http://localhost/attendance-api/scan.php", payload);
+                var result = await response.Content.ReadFromJsonAsync<ScanResponseModel>();
+
+                if (response.IsSuccessStatusCode && result != null && result.Success)
+                {
+                    LastScannedUser = result;
+                    ScanMessage = null;
+                }
+                else
+                {
+                    LastScannedUser = null;
+                    ScanMessage = result?.Message ?? "❌ Card not recognized!";
+                }
+            }
+            catch (Exception ex)
+            {
+                LastScannedUser = null;
+                ScanMessage = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                ScannedUid = string.Empty;
+                try { await terminalInputRef.FocusAsync(); } catch { }
+            }
+        }
+
+        protected string GetPunctualityStyle(string punctuality)
+        {
+            return punctuality switch
+            {
+                "EARLY" => "bg-blue-100 text-blue-800",
+                "LATE" => "bg-rose-100 text-rose-800",
+                "OFF CAMPUS" => "bg-slate-100 text-slate-700",
+                _ => "bg-emerald-100 text-emerald-800"
+            };
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            objRef?.Dispose();
+        }
+    }
+
+    public class ScanResponseModel
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string SchoolId { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = string.Empty;
+        public string ActionStatus { get; set; } = string.Empty; // ENTRY or EXIT
+        public string Punctuality { get; set; } = string.Empty;   // EARLY, ON TIME, LATE, OFF CAMPUS
+        public string Timestamp { get; set; } = string.Empty;
+    }
+}
+using Microsoft.AspNetCore.Components;
+using System.Net.Http.Json;
+
+namespace AttendanceSystem.Pages
+{
+    public partial class LiveLogs : ComponentBase, IDisposable
+    {
+        [Inject] public HttpClient Http { get; set; } = default!;
+
+        protected List<LogEntryModel> Logs { get; set; } = new();
+        protected bool IsLoading { get; set; } = true;
+        protected string SearchQuery { get; set; } = string.Empty;
+        private CancellationTokenSource _cts = new();
+
+        // Computed Filtered Logs for Search Bar
+        protected IEnumerable<LogEntryModel> FilteredLogs =>
+            string.IsNullOrWhiteSpace(SearchQuery)
+                ? Logs
+                : Logs.Where(l =>
+                    (l.FullName?.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (l.SchoolId?.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (l.Department?.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
+
+        // Real-time Stats for Top Summary Cards
+        protected LogStats Stats => new()
+        {
+            TotalScans = Logs.Count,
+            TotalInCampus = Logs.Count(l => l.ActionStatus == "ENTRY" || l.Status == "ON Campus"),
+            TotalOffCampus = Logs.Count(l => l.ActionStatus == "EXIT" || l.Status == "OFF Campus")
+        };
+
+        protected override async Task OnInitializedAsync()
+        {
+            await FetchLogsAsync();
+            IsLoading = false;
+
+            // Auto-refresh every 2 seconds
+            _ = StartLivePollingAsync(_cts.Token);
+        }
+
+        private async Task StartLivePollingAsync(CancellationToken token)
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token))
+            {
+                await FetchLogsAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
+        private async Task FetchLogsAsync()
+        {
+            try
+            {
+                var response = await Http.GetFromJsonAsync<LogsApiResponse>("http://localhost/attendance-api/get_logs.php");
+                if (response != null && response.Success)
+                {
+                    Logs = response.Logs ?? new();
+                }
+            }
+            catch
+            {
+                // Silently handle polling drops
+            }
+        }
+
+        public void Dispose()
+        {
+            _cts.Cancel();
+            _cts.Dispose();
+        }
+    }
+
+    public class LogStats
+    {
+        public int TotalScans { get; set; }
+        public int TotalInCampus { get; set; }
+        public int TotalOffCampus { get; set; }
+
+        // Aliases to match LiveLogs.razor property names
+        public int OnCampus => TotalInCampus;
+        public int OffCampus => TotalOffCampus;
+        public int TotalToday => TotalScans;
+    }
+
+    public class LogsApiResponse
+    {
+        public bool Success { get; set; }
+        public List<LogEntryModel> Logs { get; set; } = new();
+    }
+
+    public class LogEntryModel
+    {
+        public int Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string SchoolId { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public string Course { get; set; } = string.Empty;
+        public string EducationalLevel { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = string.Empty;
+        public string LogDate { get; set; } = string.Empty;
+        public string TimeIn { get; set; } = string.Empty;
+        public string TimeOut { get; set; } = string.Empty;
+        public string ActionStatus { get; set; } = string.Empty;
+        public string Punctuality { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Remarks { get; set; } = string.Empty;
+    }
+}
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using System.Net.Http.Json;
+using AttendanceSystem.Models;
+
+namespace AttendanceSystem.Pages
+{
+    public partial class Register : ComponentBase, IAsyncDisposable
+    {
+        [Inject] public HttpClient Http { get; set; } = default!;
+        [Inject] public IJSRuntime JSRuntime { get; set; } = default!;
+
+        protected RegisterUserModel RegisterModel { get; set; } = new();
+        protected string? StatusMessage { get; set; }
+        protected bool IsSuccess { get; set; } = false;
+        protected bool IsSubmitting { get; set; } = false;
+        protected bool IsScanning { get; set; } = false;
+
+        protected ElementReference nfcInputRef;
+        private DotNetObjectReference<Register>? objRef;
+
+        // Dynamic options arrays
+        protected List<string> YearLevelOptions { get; set; } = new();
+
+        protected override void OnInitialized()
+        {
+            objRef = DotNetObjectReference.Create(this);
+            UpdateDynamicFields();
+        }
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (firstRender)
+            {
+                // Auto-focus the NFC input box for Desktop USB Readers
+                try
+                {
+                    await nfcInputRef.FocusAsync();
+                }
+                catch
+                {
+                    // Ignore on devices without focus support
+                }
+            }
+        }
+
+        protected void OnRoleChanged(ChangeEventArgs e)
+        {
+            RegisterModel.Role = e.Value?.ToString() ?? "Student";
+            UpdateDynamicFields();
+        }
+
+        protected void OnEducationalLevelChanged(ChangeEventArgs e)
+        {
+            RegisterModel.EducationalLevel = e.Value?.ToString() ?? "College";
+            UpdateDynamicFields();
+        }
+
+        private void UpdateDynamicFields()
+        {
+            if (RegisterModel.Role == "Student")
+            {
+                switch (RegisterModel.EducationalLevel)
+                {
+                    case "Elementary":
+                        YearLevelOptions = new List<string> { "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6" };
+                        RegisterModel.Department = string.Empty;
+                        RegisterModel.Course = string.Empty;
+                        break;
+
+                    case "Junior High School":
+                        YearLevelOptions = new List<string> { "Grade 7", "Grade 8", "Grade 9", "Grade 10" };
+                        RegisterModel.Department = string.Empty;
+                        RegisterModel.Course = string.Empty;
+                        break;
+
+                    case "Senior High School":
+                        YearLevelOptions = new List<string> { "Grade 11", "Grade 12" };
+                        RegisterModel.Department = string.Empty;
+                        break;
+
+                    case "College":
+                    default:
+                        YearLevelOptions = new List<string> { "1st Year", "2nd Year", "3rd Year", "4th Year" };
+                        break;
+                }
+            }
+
+            // Reset selected year level if current value is invalid for new list
+            if (!YearLevelOptions.Contains(RegisterModel.YearLevel) && YearLevelOptions.Count > 0)
+            {
+                RegisterModel.YearLevel = YearLevelOptions[0];
+            }
+        }
+
+        protected async Task StartNfcScan()
+        {
+            StatusMessage = "Initializing NFC reader... Tap card against back of phone.";
+            IsSuccess = true;
+            IsScanning = true;
+
+            try
+            {
+                var supported = await JSRuntime.InvokeAsync<bool>("nfcScanner.startScanning", objRef);
+                if (!supported)
+                {
+                    StatusMessage = "Web NFC is not supported on this browser or origin is not flagged as secure.";
+                    IsSuccess = false;
+                    IsScanning = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"NFC Exception: {ex.Message}";
+                IsSuccess = false;
+                IsScanning = false;
+            }
+
+            StateHasChanged();
+        }
+
+        [JSInvokable]
+        public async Task OnNfcCardScanned(string scannedUid)
+        {
+            RegisterModel.NfcTagId = scannedUid;
+            StatusMessage = $"NFC Tag UID Captured: {scannedUid}";
+            IsSuccess = true;
+            IsScanning = false;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        protected async Task HandleRegistration()
+        {
+            IsSubmitting = true;
+            StatusMessage = null;
+
+            try
+            {
+                var response = await Http.PostAsJsonAsync("http://localhost/attendance-api/register.php", RegisterModel);
+                var result = await response.Content.ReadFromJsonAsync<RegisterApiResponse>();
+
+                if (response.IsSuccessStatusCode && result != null && result.Success)
+                {
+                    StatusMessage = "User registered successfully!";
+                    IsSuccess = true;
+                    RegisterModel = new RegisterUserModel();
+                    UpdateDynamicFields();
+                }
+                else
+                {
+                    StatusMessage = result?.Message ?? "Registration failed.";
+                    IsSuccess = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error registering user: {ex.Message}";
+                IsSuccess = false;
+            }
+            finally
+            {
+                IsSubmitting = false;
+                try
+                {
+                    await nfcInputRef.FocusAsync();
+                }
+                catch
+                {
+                    // Ignore focus error
+                }
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            objRef?.Dispose();
+        }
+    }
+}
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using System.Net.Http.Json;
+
+namespace AttendanceSystem.Pages
+{
+    public partial class RegisterUser : ComponentBase
+    {
+        [Inject] public HttpClient Http { get; set; } = default!;
+
+        protected UserRegisterModel UserModel { get; set; } = new();
+        protected bool IsModalOpen { get; set; } = false;
+        protected bool IsDataConfirmed { get; set; } = false;
+        protected bool IsSuccess { get; set; } = false;
+        protected string ErrorMessage { get; set; } = string.Empty;
+
+        protected string RegisteredName { get; set; } = string.Empty;
+        protected string RegisteredId { get; set; } = string.Empty;
+
+        private ElementReference nfcInputRef;
+
+        protected void OnRoleOrEduChanged()
+        {
+            if (UserModel.Role == "Student")
+            {
+                // Restore defaults if returning to Student
+                if (string.IsNullOrEmpty(UserModel.EducationalLevel))
+                {
+                    UserModel.EducationalLevel = "College";
+                    UserModel.YearLevel = "1st Year";
+                }
+
+                switch (UserModel.EducationalLevel)
+                {
+                    case "Elementary":
+                        UserModel.YearLevel = "Grade 1";
+                        UserModel.Department = string.Empty;
+                        UserModel.Course = string.Empty;
+                        break;
+                    case "Junior High School":
+                        UserModel.YearLevel = "Grade 7";
+                        UserModel.Department = string.Empty;
+                        UserModel.Course = string.Empty;
+                        break;
+                    case "Senior High School":
+                        UserModel.YearLevel = "Grade 11";
+                        UserModel.Department = string.Empty;
+                        break;
+                    case "College":
+                        UserModel.YearLevel = "1st Year";
+                        break;
+                }
+            }
+            else
+            {
+                // Teacher / Staff: Wipe student-only fields completely
+                UserModel.EducationalLevel = string.Empty;
+                UserModel.Course = string.Empty;
+                UserModel.YearLevel = string.Empty;
+            }
+        }
+
+        protected void OpenScanModal()
+        {
+            ErrorMessage = string.Empty;
+            IsSuccess = false;
+            UserModel.NfcTagId = string.Empty;
+            IsModalOpen = true;
+        }
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (IsModalOpen && !IsSuccess)
+            {
+                try
+                {
+                    await nfcInputRef.FocusAsync();
+                }
+                catch
+                {
+                    // Focus fallback
+                }
+            }
+        }
+
+        protected async Task HandleKeyUp(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(UserModel.NfcTagId))
+            {
+                await SubmitRegistrationAsync();
+            }
+        }
+
+        private async Task SubmitRegistrationAsync()
+        {
+            try
+            {
+                // Double check non-student cleanup before dispatch
+                if (UserModel.Role != "Student")
+                {
+                    UserModel.EducationalLevel = string.Empty;
+                    UserModel.Course = string.Empty;
+                    UserModel.YearLevel = string.Empty;
+                }
+
+                var response = await Http.PostAsJsonAsync("http://localhost/attendance-api/register.php", UserModel);
+                var result = await response.Content.ReadFromJsonAsync<RegisterResponse>();
+
+                if (result != null && result.Success)
+                {
+                    RegisteredName = $"{UserModel.FirstName} {UserModel.LastName}".Trim();
+                    RegisteredId = UserModel.SchoolId;
+
+                    IsSuccess = true;
+                    IsDataConfirmed = false;
+                    UserModel = new(); // Reset form
+                    StateHasChanged();
+                }
+                else
+                {
+                    ErrorMessage = result?.Message ?? "Failed to save registration.";
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Server Error: {ex.Message}";
+            }
+        }
+
+        protected void CloseModal()
+        {
+            IsModalOpen = false;
+            IsSuccess = false;
+        }
+    }
+
+    public class UserRegisterModel
+    {
+        public string SchoolId { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Suffix { get; set; } = string.Empty;
+        public string Role { get; set; } = "Student";
+        public string EducationalLevel { get; set; } = "College";
+        public string Department { get; set; } = string.Empty;
+        public string Course { get; set; } = string.Empty;
+        public string YearLevel { get; set; } = "1st Year";
+        public string NfcTagId { get; set; } = string.Empty;
+    }
+
+    public class RegisterResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+}
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using System.Net.Http.Json;
+
+namespace AttendanceSystem.Pages
+{
+    public partial class Reports : ComponentBase
+    {
+        [Inject] private HttpClient Http { get; set; } = default!;
+        [Inject] private IJSRuntime JS { get; set; } = default!;
+
+        private List<ReportModel> ReportList = new();
+        private bool IsLoading = true;
+        private string SearchQuery = "";
+        private string SelectedRole = "All";
+        private DateTime? StartDate = DateTime.Today;
+        private DateTime? EndDate = DateTime.Today;
+
+        protected override async Task OnInitializedAsync()
+        {
+            await LoadReports();
+        }
+
+        private async Task LoadReports()
+        {
+            IsLoading = true;
+            try
+            {
+                string url = $"http://localhost/attendance-api/get_reports.php?role={SelectedRole}&search={Uri.EscapeDataString(SearchQuery)}";
+                if (StartDate.HasValue) url += $"&startDate={StartDate.Value:yyyy-MM-dd}";
+                if (EndDate.HasValue) url += $"&endDate={EndDate.Value:yyyy-MM-dd}";
+
+                var response = await Http.GetFromJsonAsync<ReportApiResponse>(url);
+                if (response != null && response.Success)
+                {
+                    ReportList = response.Data ?? new();
+                }
+            }
+            catch
+            {
+                ReportList = new();
+            }
+            IsLoading = false;
+        }
+
+        private async Task PrintReport()
+        {
+            await JS.InvokeVoidAsync("window.print");
+        }
+
+        private async Task ExportToExcel()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>");
+            sb.Append("<head><meta http-equiv='content-type' content='text/html; charset=UTF-8'>");
+            sb.Append("<style>");
+            sb.Append("body { font-family: Arial, sans-serif; }");
+            sb.Append("table { border-collapse: collapse; width: 100%; margin-top: 10px; }");
+            sb.Append("th { background-color: #1e3a8a; color: #ffffff; font-weight: bold; padding: 10px; border: 1px solid #d1d5db; text-align: left; font-size: 11pt; }");
+            sb.Append("td { padding: 8px 10px; border: 1px solid #d1d5db; vertical-align: middle; font-size: 10pt; color: #374151; }");
+            sb.Append(".status-on { background-color: #d1fae5; color: #065f46; font-weight: bold; text-align: center; }");
+            sb.Append(".status-off { background-color: #ffedd5; color: #9a3412; font-weight: bold; text-align: center; }");
+            sb.Append(".text-center { text-align: center; }");
+            sb.Append("</style></head><body>");
+            sb.Append("<div style='font-size: 16px; font-weight: bold; margin-bottom: 5px; color: #1f2937;'>Official Attendance & Activity Report</div>");
+            sb.Append("<div style='font-size: 9pt; color: #6b7280; margin-bottom: 15px;'>Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "</div>");
+            sb.Append("<table><thead><tr>");
+            sb.Append("<th>School ID</th><th>Full Name</th><th>Role</th><th>Educational Level</th><th>Department</th><th>Course</th><th>Year Level</th><th>Status</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Punctuality</th>");
+            sb.Append("</tr></thead><tbody>");
+
+            foreach (var r in ReportList)
+            {
+                bool isOnCampus = r.Status == "ON Campus" || r.TimeOut == "—";
+                string statusClass = isOnCampus ? "status-on" : "status-off";
+                string statusText = isOnCampus ? "ON CAMPUS" : "OFF CAMPUS";
+
+                sb.Append("<tr>");
+                sb.Append($"<td style='mso-number-format:\"\\@\";'>{r.SchoolId}</td>");
+                sb.Append($"<td>{r.FullName}</td>");
+                sb.Append($"<td>{r.Role}</td>");
+                sb.Append($"<td>{r.EducationalLevel}</td>");
+                sb.Append($"<td>{r.Department}</td>");
+                sb.Append($"<td>{r.Course}</td>");
+                sb.Append($"<td>{r.YearLevel}</td>");
+                sb.Append($"<td class='{statusClass}'>{statusText}</td>");
+                sb.Append($"<td class='text-center'>{r.LogDate}</td>");
+                sb.Append($"<td class='text-center'>{r.TimeIn}</td>");
+                sb.Append($"<td class='text-center'>{r.TimeOut}</td>");
+                sb.Append($"<td class='text-center'>{r.Punctuality}</td>");
+                sb.Append("</tr>");
+            }
+
+            sb.Append("</tbody></table></body></html>");
+
+            string excelContent = sb.ToString();
+            var encodedUri = "data:application/vnd.ms-excel;charset=utf-8," + Uri.EscapeDataString(excelContent);
+            
+            await JS.InvokeVoidAsync("eval", $@"
+                let a = document.createElement('a');
+                a.href = '{encodedUri}';
+                a.download = 'Official_Attendance_Report_' + new Date().toISOString().slice(0,10) + '.xls';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            ");
+        }
+
+        public class ReportApiResponse
+        {
+            public bool Success { get; set; }
+            public List<ReportModel> Data { get; set; } = new();
+        }
+
+        public class ReportModel
+        {
+            public int Id { get; set; }
+            public string SchoolId { get; set; } = string.Empty;
+            public string FullName { get; set; } = string.Empty;
+            public string Role { get; set; } = string.Empty;
+            public string Department { get; set; } = string.Empty;
+            public string Course { get; set; } = string.Empty;
+            public string EducationalLevel { get; set; } = string.Empty;
+            public string YearLevel { get; set; } = string.Empty;
+            public string LogDate { get; set; } = string.Empty;
+            public string TimeIn { get; set; } = string.Empty;
+            public string TimeOut { get; set; } = string.Empty;
+            public string Status { get; set; } = string.Empty;
+            public string Punctuality { get; set; } = string.Empty;
+            public string Remarks { get; set; } = string.Empty;
+        }
+    }
+}
+using Microsoft.AspNetCore.Components;
+using System.Net.Http.Json;
+
+namespace AttendanceSystem.Pages
+{
+    public partial class Settings : ComponentBase
+    {
+        [Inject] public HttpClient Http { get; set; } = default!;
+
+        protected string[] Levels = { "College", "Senior High School", "Junior High School", "Elementary" };
+        protected string SelectedLevel = "College";
+        protected Dictionary<string, ScheduleModel> AllSettings = new();
+        protected ScheduleModel CurrentModel = new();
+        protected string? StatusMessage;
+        protected bool IsSuccess, IsSaving;
+
+        protected override async Task OnInitializedAsync()
+        {
+            await LoadSettings();
+        }
+
+        protected async Task LoadSettings()
+        {
+            try
+            {
+                var res = await Http.GetFromJsonAsync<ApiResponse>("http://localhost/attendance-api/settings.php");
+                if (res != null && res.Data != null)
+                {
+                    foreach (var item in res.Data)
+                    {
+                        AllSettings[item.EducationalLevel] = item;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Error loading settings: " + ex.Message;
+            }
+            UpdateCurrentModel();
+        }
+
+        protected void SelectLevel(string level)
+        {
+            SelectedLevel = level;
+            UpdateCurrentModel();
+        }
+
+        protected void UpdateCurrentModel()
+        {
+            if (AllSettings.ContainsKey(SelectedLevel))
+            {
+                CurrentModel = AllSettings[SelectedLevel];
+            }
+            else
+            {
+                CurrentModel = new ScheduleModel 
+                { 
+                    EducationalLevel = SelectedLevel, 
+                    OpeningTime = new TimeOnly(7, 0), 
+                    LateThresholdTime = new TimeOnly(7, 45), 
+                    ClosingTime = new TimeOnly(17, 0), 
+                    ThresholdEnabled = true 
+                };
+            }
+        }
+
+        protected async Task SaveSettings()
+        {
+            IsSaving = true;
+            StatusMessage = null;
+            try
+            {
+                CurrentModel.EducationalLevel = SelectedLevel;
+                var response = await Http.PostAsJsonAsync("http://localhost/attendance-api/settings.php", CurrentModel);
+                var result = await response.Content.ReadFromJsonAsync<BasicResponse>();
+
+                if (result != null && result.Success)
+                {
+                    StatusMessage = $"{SelectedLevel} settings saved successfully!";
+                    IsSuccess = true;
+                }
+                else
+                {
+                    StatusMessage = result?.Message ?? "Failed to save.";
+                    IsSuccess = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Error: " + ex.Message;
+                IsSuccess = false;
+            }
+            finally
+            {
+                IsSaving = false;
+            }
+        }
+
+        public class ScheduleModel
+        {
+            public string EducationalLevel { get; set; } = "College";
+            public TimeOnly OpeningTime { get; set; } = new TimeOnly(7, 0);
+            public TimeOnly LateThresholdTime { get; set; } = new TimeOnly(7, 45);
+            public TimeOnly ClosingTime { get; set; } = new TimeOnly(17, 0);
+            public bool ThresholdEnabled { get; set; } = true;
+        }
+
+        public class ApiResponse 
+        { 
+            public bool Success { get; set; } 
+            public List<ScheduleModel> Data { get; set; } = new(); 
+        }
+
+        public class BasicResponse 
+        { 
+            public bool Success { get; set; } 
+            public string? Message { get; set; } 
+        }
+    }
+}
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using System.Net.Http.Json;
+
+namespace AttendanceSystem.Pages
+{
+    public class UsersBase : ComponentBase
+    {
+        [Inject] protected HttpClient Http { get; set; } = default!;
+        [Inject] protected IJSRuntime JS { get; set; } = default!;
+
+        protected List<UserModel> UserList { get; set; } = new();
+        protected bool IsLoading { get; set; } = false;
+        protected string SearchTerm { get; set; } = "";
+        protected string SelectedRole { get; set; } = "All";
+
+        protected bool IsEditing { get; set; } = false;
+        protected UserModel EditingUser { get; set; } = new();
+
+        protected override async Task OnInitializedAsync()
+        {
+            await LoadUsers();
+        }
+
+        protected async Task LoadUsers()
+        {
+            IsLoading = true;
+            try
+            {
+                var url = $"http://localhost/attendance-api/manage_users.php?role={Uri.EscapeDataString(SelectedRole)}&search={Uri.EscapeDataString(SearchTerm)}";
+                var response = await Http.GetFromJsonAsync<UserApiResponse>(url);
+                if (response != null && response.Success)
+                {
+                    UserList = response.Data;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading users: {ex.Message}");
+            }
+            finally
+            {
+                IsLoading = false;
+            }
+        }
+
+        protected async Task OnRoleChanged(ChangeEventArgs e)
+        {
+            SelectedRole = e.Value?.ToString() ?? "All";
+            await LoadUsers();
+        }
+
+        protected void OpenEditModal(UserModel user)
+        {
+            EditingUser = new UserModel
+            {
+                Id = user.Id,
+                SchoolId = user.SchoolId,
+                NfcTagId = user.NfcTagId,
+                Role = user.Role,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Suffix = user.Suffix,
+                Department = user.Department,
+                EducationalLevel = user.EducationalLevel,
+                Course = user.Course,
+                YearLevel = user.YearLevel
+            };
+            IsEditing = true;
+        }
+
+        protected void CloseEditModal()
+        {
+            IsEditing = false;
+        }
+
+        protected async Task SaveUserChanges()
+        {
+            try
+            {
+                var response = await Http.PutAsJsonAsync("http://localhost/attendance-api/manage_users.php", EditingUser);
+                var result = await response.Content.ReadFromJsonAsync<UserApiResponse>();
+
+                if (result != null && result.Success)
+                {
+                    IsEditing = false;
+                    await LoadUsers();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating user: {ex.Message}");
+            }
+        }
+
+        protected async Task DeleteUser(int id)
+        {
+            bool confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this user?");
+            if (!confirmed) return;
+
+            try
+            {
+                var url = $"http://localhost/attendance-api/manage_users.php?id={id}";
+                var response = await Http.DeleteFromJsonAsync<UserApiResponse>(url);
+                if (response != null && response.Success)
+                {
+                    await LoadUsers();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting user: {ex.Message}");
+            }
+        }
+
+        protected string GetRoleBadgeClass(string role) => role switch
+        {
+            "Student" => "bg-blue-100 text-blue-800",
+            "Teacher" => "bg-purple-100 text-purple-800",
+            "Staff" => "bg-emerald-100 text-emerald-800",
+            _ => "bg-gray-100 text-gray-800"
+        };
+
+        public class UserModel
+        {
+            public int Id { get; set; }
+            public string SchoolId { get; set; } = string.Empty;
+            public string NfcTagId { get; set; } = string.Empty;
+            public string Role { get; set; } = string.Empty;
+            public string FirstName { get; set; } = string.Empty;
+            public string LastName { get; set; } = string.Empty;
+            public string? Suffix { get; set; }
+            public string? Department { get; set; }
+            public string? EducationalLevel { get; set; }
+            public string? Course { get; set; }
+            public string? YearLevel { get; set; }
+        }
+
+        public class UserApiResponse
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; } = string.Empty;
+            public List<UserModel> Data { get; set; } = new();
+        }
+    }
+}
+-- phpMyAdmin SQL Dump
+-- version 5.2.1
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Jul 31, 2026 at 09:35 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `attendance_db`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `attendancelogs`
+--
+
+CREATE TABLE `attendancelogs` (
+  `Id` int(11) NOT NULL,
+  `UserId` int(11) NOT NULL,
+  `NfcTagId` varchar(50) NOT NULL,
+  `LogDate` date NOT NULL,
+  `TimeIn` datetime NOT NULL,
+  `TimeOut` datetime DEFAULT NULL,
+  `Status` enum('ON Campus','OFF Campus') NOT NULL,
+  `Remarks` varchar(50) DEFAULT 'On Time',
+  `ActionStatus` varchar(20) DEFAULT 'ENTRY',
+  `Punctuality` varchar(20) DEFAULT 'ON TIME'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `attendancelogs`
+--
+
+INSERT INTO `attendancelogs` (`Id`, `UserId`, `NfcTagId`, `LogDate`, `TimeIn`, `TimeOut`, `Status`, `Remarks`, `ActionStatus`, `Punctuality`) VALUES
+(1, 1, '123a', '2026-07-29', '2026-07-29 11:07:44', '2026-07-29 11:08:43', 'OFF Campus', 'On Time', 'ENTRY', 'ON TIME'),
+(2, 1, '123a', '2026-07-29', '2026-07-29 11:16:31', '2026-07-29 11:16:38', 'OFF Campus', 'On Time', 'ENTRY', 'ON TIME'),
+(3, 1, '123a', '2026-07-29', '2026-07-29 11:17:36', '2026-07-29 11:17:54', 'OFF Campus', 'On Time', 'ENTRY', 'ON TIME'),
+(4, 1, '123a', '2026-07-29', '2026-07-29 17:24:09', '2026-07-29 17:24:12', 'OFF Campus', 'On Time', 'ENTRY', 'ON TIME'),
+(5, 1, '123a', '2026-07-29', '2026-07-29 17:54:45', '2026-07-29 17:54:51', 'OFF Campus', 'On Time', 'ENTRY', 'ON TIME'),
+(6, 1, '123a', '2026-07-29', '2026-07-29 20:43:33', '2026-07-29 21:58:35', 'OFF Campus', 'On Time', 'ENTRY', 'ON TIME'),
+(7, 2, '', '2026-07-29', '2026-07-29 21:58:42', '2026-07-29 21:58:52', 'OFF Campus', 'After Hours', 'ENTRY', 'ON TIME'),
+(8, 1, '', '2026-07-29', '2026-07-29 21:58:44', '2026-07-29 21:58:47', 'OFF Campus', 'After Hours', 'ENTRY', 'ON TIME'),
+(9, 2, '', '2026-07-29', '2026-07-29 21:58:54', NULL, 'ON Campus', 'After Hours', 'ENTRY', 'ON TIME'),
+(10, 1, '', '2026-07-29', '2026-07-29 21:58:57', NULL, 'ON Campus', 'After Hours', 'ENTRY', 'ON TIME'),
+(11, 1, '', '2026-07-30', '2026-07-30 00:42:05', '2026-07-30 01:14:19', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(12, 4, '', '2026-07-30', '2026-07-30 00:42:19', '2026-07-30 01:15:10', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(13, 3, '', '2026-07-30', '2026-07-30 00:42:22', '2026-07-30 01:14:46', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(14, 1, '123a', '2026-07-29', '2026-07-29 18:56:18', '2026-07-29 18:56:18', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(15, 1, '123a', '2026-07-29', '2026-07-29 18:56:27', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(16, 1, '123a', '2026-07-29', '2026-07-29 18:56:37', '2026-07-29 18:56:37', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(17, 1, '123a', '2026-07-29', '2026-07-29 18:56:40', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(18, 2, '123b', '2026-07-29', '2026-07-29 18:56:43', '2026-07-29 18:56:43', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(19, 3, '123c', '2026-07-29', '2026-07-29 18:56:47', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(20, 4, '123d', '2026-07-29', '2026-07-29 18:56:49', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(21, 1, '123a', '2026-07-29', '2026-07-29 18:56:54', '2026-07-29 18:56:54', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(22, 2, '123b', '2026-07-29', '2026-07-29 18:57:02', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(23, 3, '123c', '2026-07-29', '2026-07-29 18:57:03', '2026-07-29 18:57:03', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(24, 2, '123b', '2026-07-29', '2026-07-29 18:57:06', '2026-07-29 18:57:06', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(25, 4, '123d', '2026-07-29', '2026-07-29 18:57:27', '2026-07-29 18:57:27', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(26, 1, '123a', '2026-07-29', '2026-07-29 19:02:40', '2026-07-29 19:05:48', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(27, 1, '123a', '2026-07-29', '2026-07-29 19:10:33', '2026-07-29 19:11:01', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(28, 1, '123a', '2026-07-30', '2026-07-30 01:14:27', '2026-07-30 01:14:34', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(29, 1, '123a', '2026-07-30', '2026-07-30 01:14:42', '2026-07-30 02:40:56', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(30, 2, '123b', '2026-07-30', '2026-07-30 01:14:44', '2026-07-30 02:41:35', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(31, 3, '123c', '2026-07-30', '2026-07-30 01:14:58', '2026-07-30 02:41:42', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(32, 4, '123d', '2026-07-30', '2026-07-30 01:15:21', '2026-07-30 02:41:48', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(33, 5, '123e', '2026-07-30', '2026-07-30 02:41:56', NULL, 'ON Campus', 'On Time', 'ENTRY', 'EARLY'),
+(34, 11, '123f', '2026-07-30', '2026-07-30 02:42:00', '2026-07-30 02:42:03', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(35, 7, '123g', '2026-07-30', '2026-07-30 02:42:06', '2026-07-30 02:42:09', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(36, 12, '123h', '2026-07-30', '2026-07-30 02:42:19', NULL, 'ON Campus', 'On Time', 'ENTRY', 'EARLY'),
+(37, 7, '123g', '2026-07-30', '2026-07-30 02:42:33', '2026-07-30 14:54:14', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(38, 11, '123f', '2026-07-30', '2026-07-30 02:42:37', NULL, 'ON Campus', 'On Time', 'ENTRY', 'EARLY'),
+(39, 1, '123a', '2026-07-30', '2026-07-30 10:51:53', '2026-07-30 13:56:14', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(40, 13, '123i', '2026-07-30', '2026-07-30 12:27:31', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(41, 1, '123a', '2026-07-30', '2026-07-30 13:58:16', '2026-07-30 14:01:52', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(42, 1, '123a', '2026-07-30', '2026-07-30 14:05:55', '2026-07-30 14:36:25', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(43, 1, '123a', '2026-07-30', '2026-07-30 14:51:13', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(44, 2, '123b', '2026-07-30', '2026-07-30 14:54:03', '2026-07-30 14:54:05', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(45, 4, '123d', '2026-07-30', '2026-07-30 14:54:08', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(46, 2, '123b', '2026-07-30', '2026-07-30 14:54:10', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(47, 3, '123c', '2026-07-30', '2026-07-30 14:54:10', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(48, 1, '123a', '2026-07-31', '2026-07-31 13:43:02', '0000-00-00 00:00:00', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(49, 1, '123a', '2026-07-31', '2026-07-31 14:00:07', '2026-07-31 14:00:22', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(50, 1, '123a', '2026-07-31', '2026-07-31 14:00:23', '2026-07-31 14:00:25', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(51, 1, '123a', '2026-07-31', '2026-07-31 14:00:26', '2026-07-31 14:03:15', 'OFF Campus', 'Late', 'EXIT', 'OFF CAMPUS'),
+(52, 1, '123a', '2026-07-31', '2026-07-31 14:03:16', '2026-07-31 14:03:19', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(53, 1, '123a', '2026-07-31', '2026-07-31 14:03:20', '2026-07-31 14:07:23', 'OFF Campus', 'On Time', 'EXIT', 'OFF CAMPUS'),
+(54, 1, '123a', '2026-07-31', '2026-07-31 14:07:24', '2026-07-31 14:22:12', 'OFF Campus', 'Present', 'EXIT', ''),
+(55, 2, '123b', '2026-07-31', '0000-00-00 00:00:00', '2026-07-31 14:22:17', 'OFF Campus', 'Present', 'EXIT', ''),
+(56, 3, '123c', '2026-07-31', '0000-00-00 00:00:00', '2026-07-31 14:22:20', 'OFF Campus', 'Present', 'EXIT', ''),
+(57, 4, '123d', '2026-07-31', '0000-00-00 00:00:00', '2026-07-31 14:22:22', 'OFF Campus', 'LATE', 'EXIT', 'LATE'),
+(58, 5, '123e', '2026-07-31', '0000-00-00 00:00:00', '2026-07-31 14:22:24', 'OFF Campus', 'LATE', 'EXIT', 'LATE'),
+(59, 11, '123f', '2026-07-31', '0000-00-00 00:00:00', '2026-07-31 14:22:26', 'OFF Campus', 'Present', 'EXIT', ''),
+(60, 1, '123a', '2026-07-31', '2026-07-31 14:22:15', '2026-07-31 14:23:23', 'OFF Campus', 'Present', 'EXIT', ''),
+(61, 7, '123g', '2026-07-31', '2026-07-31 14:22:27', '2026-07-31 14:24:25', 'OFF Campus', 'Present', 'EXIT', ''),
+(62, 12, '123h', '2026-07-31', '2026-07-31 14:22:29', '2026-07-31 14:24:29', 'OFF Campus', 'Present', 'EXIT', ''),
+(63, 13, '123i', '2026-07-31', '2026-07-31 14:22:31', '2026-07-31 14:24:33', 'OFF Campus', 'Late', 'EXIT', 'LATE'),
+(64, 2, '123b', '2026-07-31', '2026-07-31 14:23:29', '2026-07-31 14:23:31', 'OFF Campus', 'Present', 'EXIT', ''),
+(65, 2, '123b', '2026-07-31', '2026-07-31 14:23:35', '2026-07-31 14:23:52', 'OFF Campus', 'Present', 'EXIT', ''),
+(66, 2, '123b', '2026-07-31', '2026-07-31 14:23:58', '2026-07-31 14:24:11', 'OFF Campus', 'Present', 'EXIT', ''),
+(67, 2, '123b', '2026-07-31', '2026-07-31 14:24:13', '2026-07-31 14:25:10', 'OFF Campus', 'Present', 'EXIT', ''),
+(68, 1, '123a', '2026-07-31', '2026-07-31 14:24:18', '2026-07-31 14:25:21', 'OFF Campus', 'Present', 'EXIT', ''),
+(69, 13, '123i', '2026-07-31', '2026-07-31 14:24:54', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(70, 12, '123h', '2026-07-31', '2026-07-31 14:25:16', '2026-07-31 14:32:45', 'OFF Campus', 'Present', 'EXIT', ''),
+(71, 3, '123c', '2026-07-31', '2026-07-31 14:32:38', '2026-07-31 14:33:00', 'OFF Campus', 'Present', 'EXIT', ''),
+(72, 1, '123a', '2026-07-31', '2026-07-31 14:32:57', '2026-07-31 14:37:37', 'OFF Campus', 'Present', 'EXIT', ''),
+(73, 1, '123a', '2026-07-31', '2026-07-31 15:18:24', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
+(74, 2, '123b', '2026-07-31', '2026-07-31 15:18:48', '2026-07-31 15:18:50', 'OFF Campus', 'Present', 'EXIT', ''),
+(75, 2, '123b', '2026-07-31', '2026-07-31 15:18:52', NULL, 'ON Campus', 'Present', 'ENTRY', '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `campussettings`
+--
+
+CREATE TABLE `campussettings` (
+  `Id` int(11) NOT NULL,
+  `OpeningTime` time NOT NULL DEFAULT '08:00:00',
+  `LateThresholdTime` time NOT NULL DEFAULT '08:30:00',
+  `ClosingTime` time NOT NULL DEFAULT '17:00:00',
+  `UpdatedAt` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `EducationalLevel` varchar(50) DEFAULT 'College',
+  `ThresholdEnabled` tinyint(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `campussettings`
+--
+
+INSERT INTO `campussettings` (`Id`, `OpeningTime`, `LateThresholdTime`, `ClosingTime`, `UpdatedAt`, `EducationalLevel`, `ThresholdEnabled`) VALUES
+(1, '08:00:00', '09:00:00', '18:00:00', '2026-07-31 06:00:18', 'College', 0),
+(2, '06:30:00', '07:30:00', '18:00:00', '2026-07-31 05:50:48', 'Senior High School', 1),
+(3, '06:30:00', '07:30:00', '17:00:00', '2026-07-31 05:50:50', 'Junior High School', 1),
+(4, '07:00:00', '07:45:00', '16:00:00', '2026-07-31 05:50:53', 'Elementary', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `Id` int(11) NOT NULL,
+  `SchoolId` varchar(50) NOT NULL,
+  `NfcTagId` varchar(50) NOT NULL,
+  `Role` varchar(50) NOT NULL DEFAULT 'Student',
+  `FirstName` varchar(50) NOT NULL,
+  `LastName` varchar(50) NOT NULL,
+  `Suffix` varchar(50) DEFAULT NULL,
+  `Department` varchar(100) DEFAULT NULL,
+  `EducationalLevel` varchar(100) DEFAULT NULL,
+  `Course` varchar(100) DEFAULT NULL,
+  `YearLevel` varchar(20) DEFAULT NULL,
+  `CreatedAt` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`Id`, `SchoolId`, `NfcTagId`, `Role`, `FirstName`, `LastName`, `Suffix`, `Department`, `EducationalLevel`, `Course`, `YearLevel`, `CreatedAt`) VALUES
+(1, '210133', '123a', 'Student', 'AJ', 'CALIXTRO', NULL, 'CCIS', 'College', 'IT', '4th', '2026-07-29 08:42:45'),
+(2, '210134', '123b', 'Student', 'Bebs', 'Calixtro', NULL, 'CMAHS', 'College', 'Midwifery', '3rd', '2026-07-29 13:25:12'),
+(3, '210135', '123c', 'Student', 'Niko', 'Calixtro', NULL, 'CBA', 'College', 'Acountancy', '1st', '2026-07-29 16:18:09'),
+(4, '210136', '123d', 'Student', 'Kem', 'Calixtro', NULL, NULL, 'Senior High School', 'HUMMS', 'Grade 12', '2026-07-29 16:28:41'),
+(5, '210137', '123e', 'Student', 'Jersus Arzareth', 'Calixtro', NULL, NULL, 'Elementary', NULL, 'Grade 1', '2026-07-29 17:30:06'),
+(7, '210139', '123g', 'Staff', 'Angelito', 'Calixtro', NULL, 'TECHNICAL', NULL, NULL, NULL, '2026-07-29 17:58:24'),
+(11, '210138', '123f', 'Teacher', 'Jocelyn', 'Zamora', NULL, 'CHED', NULL, NULL, NULL, '2026-07-29 18:30:32'),
+(12, '210149', '123h', 'Teacher', 'Jenny', 'Calixtro', NULL, 'CECD', NULL, NULL, NULL, '2026-07-29 18:40:20'),
+(13, '210140', '123i', 'Student', 'Bryan', 'Bisin', NULL, NULL, 'Junior High School', NULL, 'Grade 9', '2026-07-30 04:27:14');
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `attendancelogs`
+--
+ALTER TABLE `attendancelogs`
+  ADD PRIMARY KEY (`Id`),
+  ADD KEY `UserId` (`UserId`);
+
+--
+-- Indexes for table `campussettings`
+--
+ALTER TABLE `campussettings`
+  ADD PRIMARY KEY (`Id`);
+
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`Id`),
+  ADD UNIQUE KEY `SchoolId` (`SchoolId`),
+  ADD UNIQUE KEY `NfcTagId` (`NfcTagId`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `attendancelogs`
+--
+ALTER TABLE `attendancelogs`
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+
+--
+-- AUTO_INCREMENT for table `campussettings`
+--
+ALTER TABLE `campussettings`
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `attendancelogs`
+--
+ALTER TABLE `attendancelogs`
+  ADD CONSTRAINT `attendancelogs_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`Id`) ON DELETE CASCADE;
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using AttendanceSystem;
+
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+builder.RootComponents.Add<App>("#app");
+builder.RootComponents.Add<HeadOutlet>("head::after");
+
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+
+await builder.Build().RunAsync();

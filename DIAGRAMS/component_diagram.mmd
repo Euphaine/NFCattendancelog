@@ -1,0 +1,22 @@
+graph TB
+    subgraph Presentation Layer
+        UI[Web Admin Dashboard]
+        Terminal[NFC Kiosk Interface]
+    end
+
+    subgraph Business Logic Layer
+        Auth[Authentication Module]
+        LogEngine[Attendance Processing Engine]
+        ConfigEngine[Settings Module]
+    end
+
+    subgraph Data Layer
+        DB[(Relational Database)]
+    end
+
+    UI --> Auth
+    UI --> ConfigEngine
+    Terminal --> LogEngine
+    Auth --> DB
+    LogEngine --> DB
+    ConfigEngine --> DB

@@ -1,0 +1,28 @@
+classDiagram
+    class User {
+        +int Id
+        +string SchoolId
+        +string NfcTagId
+        +string Role
+        +registerUser()
+        +updateProfile()
+    }
+
+    class AttendanceLog {
+        +int Id
+        +int UserId
+        +datetime TimeIn
+        +datetime TimeOut
+        +string Status
+        +recordScan()
+    }
+
+    class CampusSettings {
+        +int Id
+        +time OpeningTime
+        +time LateThresholdTime
+        +updateThresholds()
+    }
+
+    User "1" --> "*" AttendanceLog : generates
+    CampusSettings "1" --> "*" User : governs

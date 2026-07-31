@@ -1,0 +1,15 @@
+graph TD
+    subgraph Client Node
+        Device[NFC Hardware Scanner / Workstation Browser]
+    end
+
+    subgraph Application Server Node
+        Server[Apache / PHP Application Server]
+    end
+
+    subgraph Database Server Node
+        Database[(MariaDB / MySQL Database Server)]
+    end
+
+    Device -->|HTTP / API Requests| Server
+    Server -->|SQL Queries| Database

@@ -1,0 +1,6 @@
+flowchart TD
+    Start([Start]) --> Action{Select Operation}
+    
+    Action -- User Management --> UserIn[/Input User Credentials/] --> SaveUser[(Save to Users Table)] --> End1([End])
+    Action -- Rule Configuration --> ConfigIn[/Update Threshold / Schedule/] --> SaveConfig[(Save to Settings Table)] --> End2([End])
+    Action -- Report Generation --> ReportQuery[(Query Attendance Logs)] --> Export[/Export CSV / View Data/] --> End3([End])

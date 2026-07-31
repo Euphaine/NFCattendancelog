@@ -1,0 +1,16 @@
+graph LR
+    direction LR
+    Student((Student / Staff)) --> UC1
+    NFCReader((NFC Hardware)) --> UC2
+
+    subgraph Attendance System - User Portal
+        direction LR
+        UC1[Process NFC Attendance Scan]
+        UC2[Validate NFC Tag UID]
+        UC3[Record Invalid Scan Failure]
+        UC4[Record Time-In and Time-Out]
+        
+        UC1 -. "<<include>>" .-> UC2
+        UC3 -. "<<extend>>" .-> UC1
+        UC1 -. "<<include>>" .-> UC4
+    end

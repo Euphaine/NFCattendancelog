@@ -1,0 +1,22 @@
+erDiagram
+    direction LR
+    USERS {
+        int Id PK
+        string SchoolId UK
+        string NfcTagId UK
+        string Role
+        string FirstName
+        string LastName
+        string Department
+        string EducationalLevel
+    }
+    ATTENDANCE_LOGS {
+        int Id PK
+        int UserId FK
+        date LogDate
+        datetime TimeIn
+        datetime TimeOut
+        string Status
+        string Punctuality
+    }
+    USERS ||--o{ ATTENDANCE_LOGS : generates

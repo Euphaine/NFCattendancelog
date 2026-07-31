@@ -1,0 +1,17 @@
+graph LR
+    direction LR
+    Admin((Administrator)) --> UC1
+    Admin --> UC2
+    Admin --> UC3
+
+    subgraph Attendance System - Admin Portal
+        direction LR
+        UC1[Manage User Accounts]
+        UC2[Configure Campus Settings]
+        UC3[Generate Attendance Reports]
+        UC4[Verify Schedule Thresholds]
+        UC5[Export Reports to CSV]
+
+        UC2 -. "<<include>>" .-> UC4
+        UC3 -. "<<extend>>" .-> UC5
+    end

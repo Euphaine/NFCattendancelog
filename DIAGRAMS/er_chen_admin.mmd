@@ -1,0 +1,35 @@
+erDiagram
+    direction LR
+
+    ADMINISTRATORS {
+        int Id PK
+        string SchoolId UK
+        string Role
+        string Name
+    }
+
+    USERS {
+        int Id PK
+        string SchoolId UK
+        string Role
+    }
+
+    CAMPUS_SETTINGS {
+        int Id PK
+        time OpeningTime
+        time LateThresholdTime
+        time ClosingTime
+        string EducationalLevel
+        boolean ThresholdEnabled
+    }
+
+    ATTENDANCE_LOGS {
+        int Id PK
+        int UserId FK
+        date LogDate
+        string Status
+    }
+
+    ADMINISTRATORS ||--o{ USERS : manages
+    ADMINISTRATORS ||--o{ CAMPUS_SETTINGS : configures
+    ADMINISTRATORS ||--o{ ATTENDANCE_LOGS : audits

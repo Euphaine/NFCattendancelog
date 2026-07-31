@@ -1,0 +1,63 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'darkMode': true,
+    'background': '#1e1e1e',
+    'primaryColor': '#2563eb',
+    'primaryTextColor': '#ffffff',
+    'primaryBorderColor': '#60a5fa',
+    'lineColor': '#94a3b8',
+    'secondaryColor': '#0f172a',
+    'tertiaryColor': '#1e293b'
+  }
+}}%%
+flowchart TD
+    classDef client fill:#1e3a8a,stroke:#60a5fa,stroke-width:2px,color:#fff;
+    classDef server fill:#065f46,stroke:#34d399,stroke-width:2px,color:#fff;
+    classDef db fill:#78350f,stroke:#fbbF24,stroke-width:2px,color:#fff;
+    classDef process fill:#312e81,stroke:#818cf8,stroke-width:2px,color:#fff;
+
+    Start([Blazor WASM Client App]) --> ActionChoice{Select Action / Event}
+
+    %% 1. NFC Attendance Flow
+    ActionChoice -->|1. Tap NFC Card / Scan UID| ScanReq[POST scan.php<br/>Payload: nfcTagId]:::client
+    ScanReq --> PHPScan[PHP: scan.php]:::server
+    PHPScan --> DBFindUser[(Query: users table<br/>Find by NfcTagId)]:::db
+    DBFindUser --> CheckUser{User Found?}
+    CheckUser -->|No| Err1[Return JSON: Error User Not Found]:::server
+    CheckUser -->|Yes| DBGetSettings[(Query: campussettings<br/>By EducationalLevel)]:::db
+    DBGetSettings --> DBGetLastLog[(Query: attendancelogs<br/>Get Last Log for Today)]:::db
+    DBGetLastLog --> EvaluateAction{Determine Action Status}
+    
+    EvaluateAction -->|Last Log is EXIT or None| DoEntry[INSERT attendance log<br/>ActionStatus = ENTRY, Status = ON Campus]:::process
+    EvaluateAction -->|Last Log is ENTRY| DoExit[UPDATE attendance log<br/>ActionStatus = EXIT, Status = OFF Campus, TimeOut = NOW]:::process
+    
+    DoEntry --> RetScan[Return JSON Success & User Info]:::server
+    DoExit --> RetScan
+    RetScan --> RenderScan[Render UI Feedback & Status]:::client
+
+    %% 2. Registration Flow
+    ActionChoice -->|2. Register New User| RegReq[POST register.php<br/>Payload: SchoolId, Names, NfcTagId, Role]:::client
+    RegReq --> PHPReg[PHP: register.php]:::server
+    PHPReg --> DBClean[(Query: Check duplicate SchoolId or NfcTagId)]:::db
+    DBClean --> CheckDup{Is Duplicate?}
+    CheckDup -->|Yes| RetDup[Return JSON Error: Already Exists]:::server
+    CheckDup -->|No| DBInsertUser[(INSERT INTO users table)]:::db
+    DBInsertUser --> RetReg[Return JSON Success]:::server
+    RetReg --> RenderReg[Show Success/Error Notification]:::client
+
+    %% 3. Live Logs Polling Flow
+    ActionChoice -->|3. Live Dashboard Polling| PollLoop[PeriodicTimer: Every 2 Seconds]:::client
+    PollLoop --> LogsReq[GET get_logs.php]:::client
+    LogsReq --> PHPLogs[PHP: get_logs.php]:::server
+    PHPLogs --> DBLogs[(SELECT logs LEFT JOIN users<br/>ORDER BY timestamp DESC LIMIT 50)]:::db
+    DBLogs --> RetLogs[Return JSON Logs Array]:::server
+    RetLogs --> RenderLogs[StateHasChanged & Refresh UI Grid]:::client
+
+    %% 4. Management, Settings & Reports Flow
+    ActionChoice -->|4. Admin Config, Reports & CRUD| AdminReq[HTTP GET/POST/DELETE<br/>manage_users.php, settings.php, get_reports.php]:::client
+    AdminReq --> PHPAdmin[PHP Backend APIs]:::server
+    PHPAdmin --> DBAdmin[(Execute SQL Queries:<br/>UPDATE / DELETE / SELECT with Filters)]:::db
+    DBAdmin --> RetAdmin[Return Affected Rows or Filtered Dataset]:::server
+    RetAdmin --> RenderAdmin[Update Views, Excel Export, or Print]:::client
+```[cite: 1]

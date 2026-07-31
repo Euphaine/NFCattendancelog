@@ -1,0 +1,8 @@
+flowchart TD
+    A([Initial State]) --> B[Receive NFC Scan Event]
+    B --> C{Verify User Existence}
+    C -- Invalid --> D[Log Exception & Terminate]
+    C -- Valid --> E[Evaluate Campus Settings & Time Rules]
+    E --> F[Update Presence State]
+    F --> G[Commit Transaction to Database]
+    G --> H([Final State])

@@ -1,0 +1,15 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Terminal as NFC Hardware
+    participant API as Backend Controller
+    participant DB as Database
+
+    User->>Terminal: Tap NFC Tag
+    Terminal->>API: HTTP POST Tag UID
+    API->>DB: Query User & Settings
+    DB-->>API: Return Record
+    API->>DB: Insert / Update Attendance Log
+    DB-->>API: Confirm Transaction
+    API-->>Terminal: Return Status Response
+    Terminal-->>User: Visual / Audio Feedback

@@ -1,0 +1,19 @@
+flowchart TD
+    Start([Start]) --> Input[/Capture NFC Tag UID and Timestamp/]
+    Input --> Query[Query Database for User Profile]
+    Query --> Found{User Valid?}
+    
+    Found -- No --> Error[/Reject Access / Log Failure/] --> End([End])
+    Found -- Yes --> Status{Check Current Status}
+    
+    Status -- ON Campus --> Exit[Record Time-Out & Set OFF Campus] --> Save[(Save to Database)]
+    Status -- OFF Campus --> TimeCheck{Exceeds Late Threshold?}
+    
+    TimeCheck -- Yes --> Late[/Mark as Late/]
+    TimeCheck -- No --> OnTime[/Mark as On Time/]
+    
+    Late --> Entry[Record Time-In & Set ON Campus]
+    OnTime --> Entry
+    
+    Entry --> Save
+    Save --> Success([Grant Access]) --> End
