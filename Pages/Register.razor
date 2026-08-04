@@ -10,6 +10,11 @@
             <p class="text-slate-500 text-sm mt-1">Assign an NFC card/tag to a student or staff member.</p>
         </div>
 
+        <!-- Visitor Registration Button -->
+        <div>
+            <button type="button" class="btn btn-info text-white font-bold py-2 px-3 rounded-lg" data-bs-toggle="modal" data-bs-target="#visitorRegisterModal">Register Visitor</button>
+        </div>
+
         @if (IsScanning)
         {
             <span class="px-3 py-1 text-xs font-bold bg-emerald-100 text-emerald-800 rounded-full animate-pulse flex items-center gap-1">
@@ -136,4 +141,20 @@
             </div>
         </EditForm>
     </div>
+</div>
+
+<!-- Visitor Registration Modal -->
+<div class="modal fade" id="visitorRegisterModal" tabindex="-1" aria-labelledby="visitorRegisterModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="visitorRegisterModalLabel">Register New Visitor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Embed the new visitor registration form component here -->
+        <VisitorRegistrationForm />
+      </div>
+    </div>
+  </div>
 </div>

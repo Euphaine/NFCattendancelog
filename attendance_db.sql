@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 31, 2026 at 09:35 AM
+-- Generation Time: Aug 03, 2026 at 04:45 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -119,7 +119,17 @@ INSERT INTO `attendancelogs` (`Id`, `UserId`, `NfcTagId`, `LogDate`, `TimeIn`, `
 (72, 1, '123a', '2026-07-31', '2026-07-31 14:32:57', '2026-07-31 14:37:37', 'OFF Campus', 'Present', 'EXIT', ''),
 (73, 1, '123a', '2026-07-31', '2026-07-31 15:18:24', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
 (74, 2, '123b', '2026-07-31', '2026-07-31 15:18:48', '2026-07-31 15:18:50', 'OFF Campus', 'Present', 'EXIT', ''),
-(75, 2, '123b', '2026-07-31', '2026-07-31 15:18:52', NULL, 'ON Campus', 'Present', 'ENTRY', '');
+(75, 2, '123b', '2026-07-31', '2026-07-31 15:18:52', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
+(76, 1, '123a', '2026-08-01', '2026-08-01 21:41:54', '2026-08-01 21:42:00', 'OFF Campus', 'Present', 'EXIT', ''),
+(77, 3, '123c', '2026-08-01', '2026-08-01 21:42:07', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
+(78, 7, '123g', '2026-08-01', '2026-08-01 21:42:12', '2026-08-01 21:42:44', 'OFF Campus', 'Present', 'EXIT', ''),
+(79, 13, '123i', '2026-08-01', '2026-08-01 21:42:18', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(80, 4, '123d', '2026-08-01', '2026-08-01 21:42:22', '2026-08-01 21:42:28', 'OFF Campus', 'Late', 'EXIT', 'LATE'),
+(81, 5, '123e', '2026-08-01', '2026-08-01 21:42:24', NULL, 'ON Campus', 'Late', 'ENTRY', 'LATE'),
+(82, 11, '123f', '2026-08-01', '2026-08-01 21:42:25', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
+(83, 2, '123b', '2026-08-01', '2026-08-01 21:42:32', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
+(84, 1, '123a', '2026-08-01', '2026-08-01 21:42:35', NULL, 'ON Campus', 'Present', 'ENTRY', ''),
+(85, 2, '123b', '2026-08-03', '2026-08-03 22:03:17', '2026-08-03 22:03:33', 'OFF Campus', 'Present', 'EXIT', '');
 
 -- --------------------------------------------------------
 
@@ -183,6 +193,54 @@ INSERT INTO `users` (`Id`, `SchoolId`, `NfcTagId`, `Role`, `FirstName`, `LastNam
 (12, '210149', '123h', 'Teacher', 'Jenny', 'Calixtro', NULL, 'CECD', NULL, NULL, NULL, '2026-07-29 18:40:20'),
 (13, '210140', '123i', 'Student', 'Bryan', 'Bisin', NULL, NULL, 'Junior High School', NULL, 'Grade 9', '2026-07-30 04:27:14');
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `visitors`
+--
+
+CREATE TABLE `visitors` (
+  `VisitorId` int(11) NOT NULL,
+  `NfcTagId` varchar(255) DEFAULT NULL,
+  `Name` varchar(255) NOT NULL,
+  `PurposeOfVisit` text DEFAULT NULL,
+  `HostPersonId` int(11) DEFAULT NULL,
+  `ContactInfo` varchar(255) DEFAULT NULL,
+  `TimeIn` datetime NOT NULL,
+  `TimeOut` datetime DEFAULT NULL,
+  `DateVisited` date NOT NULL,
+  `CreatedAt` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `visitor_details`
+--
+
+CREATE TABLE `visitor_details` (
+  `VisitorId` int(11) NOT NULL,
+  `Name` varchar(255) NOT NULL,
+  `Address` text DEFAULT NULL,
+  `CreatedAt` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `visitor_logs`
+--
+
+CREATE TABLE `visitor_logs` (
+  `LogId` int(11) NOT NULL,
+  `VisitorId` int(11) NOT NULL,
+  `NfcTagId` varchar(255) NOT NULL,
+  `PurposeOfVisit` text DEFAULT NULL,
+  `TimeIn` datetime NOT NULL,
+  `TimeOut` datetime DEFAULT NULL,
+  `DateVisited` date NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Indexes for dumped tables
 --
@@ -209,6 +267,26 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `NfcTagId` (`NfcTagId`);
 
 --
+-- Indexes for table `visitors`
+--
+ALTER TABLE `visitors`
+  ADD PRIMARY KEY (`VisitorId`),
+  ADD UNIQUE KEY `NfcTagId` (`NfcTagId`);
+
+--
+-- Indexes for table `visitor_details`
+--
+ALTER TABLE `visitor_details`
+  ADD PRIMARY KEY (`VisitorId`);
+
+--
+-- Indexes for table `visitor_logs`
+--
+ALTER TABLE `visitor_logs`
+  ADD PRIMARY KEY (`LogId`),
+  ADD KEY `VisitorId` (`VisitorId`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -216,7 +294,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `attendancelogs`
 --
 ALTER TABLE `attendancelogs`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=86;
 
 --
 -- AUTO_INCREMENT for table `campussettings`
@@ -231,6 +309,24 @@ ALTER TABLE `users`
   MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
+-- AUTO_INCREMENT for table `visitors`
+--
+ALTER TABLE `visitors`
+  MODIFY `VisitorId` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `visitor_details`
+--
+ALTER TABLE `visitor_details`
+  MODIFY `VisitorId` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `visitor_logs`
+--
+ALTER TABLE `visitor_logs`
+  MODIFY `LogId` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- Constraints for dumped tables
 --
 
@@ -239,6 +335,12 @@ ALTER TABLE `users`
 --
 ALTER TABLE `attendancelogs`
   ADD CONSTRAINT `attendancelogs_ibfk_1` FOREIGN KEY (`UserId`) REFERENCES `users` (`Id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `visitor_logs`
+--
+ALTER TABLE `visitor_logs`
+  ADD CONSTRAINT `visitor_logs_ibfk_1` FOREIGN KEY (`VisitorId`) REFERENCES `visitor_details` (`VisitorId`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

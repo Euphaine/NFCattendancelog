@@ -10,6 +10,8 @@ namespace AttendanceSystem.Pages
         protected List<LogEntryModel> Logs { get; set; } = new();
         protected bool IsLoading { get; set; } = true;
         protected string SearchQuery { get; set; } = string.Empty;
+        protected bool IsVisitorModalOpen { get; set; } = false;
+
         private CancellationTokenSource _cts = new();
 
         // Computed Filtered Logs for Search Bar
@@ -36,6 +38,16 @@ namespace AttendanceSystem.Pages
 
             // Auto-refresh every 2 seconds
             _ = StartLivePollingAsync(_cts.Token);
+        }
+
+        protected void OpenVisitorModal()
+        {
+            IsVisitorModalOpen = true;
+        }
+
+        protected void CloseVisitorModal()
+        {
+            IsVisitorModalOpen = false;
         }
 
         private async Task StartLivePollingAsync(CancellationToken token)
@@ -77,7 +89,6 @@ namespace AttendanceSystem.Pages
         public int TotalInCampus { get; set; }
         public int TotalOffCampus { get; set; }
 
-        // Aliases to match LiveLogs.razor property names
         public int OnCampus => TotalInCampus;
         public int OffCampus => TotalOffCampus;
         public int TotalToday => TotalScans;

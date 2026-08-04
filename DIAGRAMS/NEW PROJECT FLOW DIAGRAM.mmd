@@ -1,0 +1,20 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Terminal as Blazor IDScanner Page
+    participant API as scan.php
+    participant DB as MariaDB Database
+
+    User->>Terminal: Taps NFC Card
+    Terminal->>API: HTTP POST with NFC Tag ID
+    API->>DB: SELECT * FROM users WHERE NfcTagId = ?
+    DB-->>API: Return User Record
+    API->>DB: SELECT * FROM campussettings WHERE EducationalLevel = ?
+    DB-->>API: Return Attendance Rules
+    API->>DB: SELECT * FROM attendancelogs WHERE UserId = ? AND LogDate = ? ORDER BY Id DESC LIMIT 1
+    DB-->>API: Return Last Log for Today
+    API->>API: Determine if next action is ENTRY or EXIT
+    API->>DB: INSERT (for ENTRY) or UPDATE (for EXIT) attendancelogs table
+    DB-->>API: Confirm Transaction
+    API-->>Terminal: Return JSON Response (Success, User Info, Message)
+    Terminal-->>User: Display "Welcome" or "Goodbye" message

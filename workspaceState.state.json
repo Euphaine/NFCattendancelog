@@ -1,0 +1,170 @@
+{
+  "workspaceFoldersFilePaths": [
+    "c:\\C#\\AttendanceSystem/"
+  ],
+  "symbols": [],
+  "activeFileDiagnostics": [],
+  "debugConsoleOutput": "",
+  "terminalBuffer": "",
+  "terminalSelection": "",
+  "terminalShellType": "pwsh",
+  "repoContexts": [
+    {
+      "_repo": {
+        "rootUri": {
+          "$mid": 1,
+          "path": "/c:/C#/AttendanceSystem",
+          "scheme": "file"
+        },
+        "inputBox": {},
+        "kind": "repository",
+        "state": {},
+        "ui": {},
+        "isUsingVirtualFileSystem": false
+      },
+      "rootUri": {
+        "$mid": 1,
+        "path": "/c:/C#/AttendanceSystem",
+        "scheme": "file"
+      },
+      "kind": "repository",
+      "isUsingVirtualFileSystem": false,
+      "headBranchName": "main",
+      "headCommitHash": "7c2192ba1530b8473c58d0c2d09527ced1af5353",
+      "headIncomingChanges": 0,
+      "headOutgoingChanges": 0,
+      "upstreamBranchName": "main",
+      "upstreamRemote": "origin",
+      "isRebasing": true,
+      "remotes": [
+        "origin"
+      ],
+      "remoteFetchUrls": [
+        "https://github.com/Euphaine/NFCattendancelog.git"
+      ],
+      "worktrees": [
+        {
+          "name": "AttendanceSystem",
+          "path": "c:\\C#\\AttendanceSystem",
+          "ref": "refs/heads/main",
+          "detached": false,
+          "main": true
+        }
+      ],
+      "changes": {
+        "mergeChanges": [],
+        "indexChanges": [],
+        "workingTree": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {}
+        ],
+        "untrackedChanges": []
+      },
+      "_onDidChangeSignal": {
+        "_observers": {},
+        "debugName": "Observable Signal From Event"
+      },
+      "headBranchNameObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "headCommitHashObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "upstreamBranchNameObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "upstreamRemoteObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "isRebasingObs": {
+        "_observers": {},
+        "_debugNameData": {},
+        "_state": 0,
+        "_updateCount": 0,
+        "_dependencies": {},
+        "_dependenciesToBeRemoved": {},
+        "_isUpdating": false,
+        "_isComputing": false,
+        "_didReportChange": false,
+        "_isInBeforeUpdate": false,
+        "_isReaderValid": false,
+        "_removedObserverToCallEndUpdateOn": null
+      },
+      "_checkIsIgnored": {
+        "_waitingTimeMs": 1000,
+        "_queue": [],
+        "_timeout": null
+      },
+      "_isIgnored": {
+        "_map": {},
+        "_map2": {}
+      }
+    }
+  ],
+  "notebookDocumentFilePaths": [],
+  "textDocumentFilePaths": []
+}
