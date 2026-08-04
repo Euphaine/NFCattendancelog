@@ -111,6 +111,7 @@ namespace AttendanceSystem.Pages
         public string SchoolId { get; set; } = string.Empty;
         public string Department { get; set; } = string.Empty;
         public string YearLevel { get; set; } = string.Empty;
+        public string? Photo { get; set; }
         public string ActionStatus { get; set; } = string.Empty; // ENTRY or EXIT
         public string Punctuality { get; set; } = string.Empty;   // EARLY, ON TIME, LATE, OFF CAMPUS
         public string Timestamp { get; set; } = string.Empty;

@@ -101,6 +101,7 @@ try {
             "schoolId" => $user['SchoolId'] ?? '',
             "department" => !empty($user['Department']) ? $user['Department'] : ($user['Course'] ?? ''),
             "yearLevel" => $user['YearLevel'] ?? '',
+            "photo" => $user['Photo'] ?? null, // <-- Added photo field
             "actionStatus" => $nextAction,
             "punctuality" => $punctuality,
             "message" => $customMessage,

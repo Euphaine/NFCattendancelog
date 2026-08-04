@@ -20,10 +20,10 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">User Role</label>
                                <InputSelect @bind-Value="UserModel.Role" @bind-Value:after="OnRoleOrEduChanged" class="form-select">
-    <option value="Student">Student</option>
-    <option value="Teacher">Teacher</option>
-    <option value="Staff">Staff</option>
-</InputSelect>
+                                <option value="Student">Student</option>
+                                <option value="Teacher">Teacher</option>
+                                <option value="Staff">Staff</option>
+                            </InputSelect>
                             </div>
                         </div>
 
@@ -66,21 +66,20 @@
                                         <label class="form-label fw-bold">Department</label>
                                         <InputSelect @bind-Value="UserModel.Department" class="form-select">
                                             <option value="">Select Department...</option>
-                                            <option value="CCIS">College of Computing & Info Sciences (CCIS)</option>
+                                            <option value="CCIS">College of Computing & Information Sciences (CCIS)</option>
                                             <option value="CMAHS">College of Medicine & Allied Health (CMAHS)</option>
                                             <option value="CBA">College of Business & Accountancy (CBA)</option>
-                                            <option value="CED">College of Education (CED)</option>
+                                            <option value="CED">College of Extension & Community Education (CECD)</option>
+                                            <option value="CAS">College of Arts & Sciences (CAS)</option>
+                                            <option value="CT">College of Theology (CT)</option>
+                                            <option value="CTE">College of Teacher Education (CTE)</option>
+                                            <option value="CSW">College of Social Work (CSW)</option>
+                                            <option value="COA">College of Agriculture (COA)</option>
                                         </InputSelect>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Course / Program</label>
-                                        <InputSelect @bind-Value="UserModel.Course" class="form-select">
-                                            <option value="">Select Course...</option>
-                                            <option value="BSIT">BS Information Technology</option>
-                                            <option value="BSCS">BS Computer Science</option>
-                                            <option value="Midwifery">BS Midwifery</option>
-                                            <option value="Accountancy">BS Accountancy</option>
-                                        </InputSelect>
+                                       <input type="text" class="form-control" @bind="UserModel.Course" placeholder="Enter course or program..." />
                                     </div>
                                 }
                                 else if (UserModel.EducationalLevel == "Senior High School")
@@ -154,6 +153,11 @@
                                 <label class="form-check-label text-muted small" for="confirmData">
                                     Done filling. Confirm details are complete.
                                 </label>
+                            </div>
+
+                            <div class="mb-3">
+                             <label class="form-label fw-bold">Profile Photo</label>
+                              <InputFile OnChange="OnPhotoSelected" class="form-control" accept=".jpg, .jpeg, .png" />
                             </div>
 
                             <button type="submit" class="btn btn-primary px-4 fw-bold" disabled="@(!IsDataConfirmed)">

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using System.Net.Http.Json;
 
@@ -50,6 +51,19 @@ namespace AttendanceSystem.Pages
             await LoadUsers();
         }
 
+        protected async Task OnEditPhotoSelected(InputFileChangeEventArgs e)
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                var resizedFile = await file.RequestImageFileAsync("image/jpeg", 400, 400);
+                using var stream = resizedFile.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                EditingUser.NewPhoto = $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+            }
+        }
+
         protected void OpenEditModal(UserModel user)
         {
             EditingUser = new UserModel
@@ -64,7 +78,8 @@ namespace AttendanceSystem.Pages
                 Department = user.Department,
                 EducationalLevel = user.EducationalLevel,
                 Course = user.Course,
-                YearLevel = user.YearLevel
+                YearLevel = user.YearLevel,
+                Photo = user.Photo
             };
             IsEditing = true;
         }
@@ -74,24 +89,28 @@ namespace AttendanceSystem.Pages
             IsEditing = false;
         }
 
-        protected async Task SaveUserChanges()
-        {
-            try
-            {
-                var response = await Http.PutAsJsonAsync("http://localhost/attendance-api/manage_users.php", EditingUser);
-                var result = await response.Content.ReadFromJsonAsync<UserApiResponse>();
+       protected async Task SaveUserChanges()
+{
+    try
+    {
+        var response = await Http.PutAsJsonAsync("http://localhost/attendance-api/manage_users.php", EditingUser);
+        var result = await response.Content.ReadFromJsonAsync<UserApiResponse>();
 
-                if (result != null && result.Success)
-                {
-                    IsEditing = false;
-                    await LoadUsers();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating user: {ex.Message}");
-            }
+        if (result != null && result.Success)
+        {
+            IsEditing = false;
+            await LoadUsers();
         }
+        else
+        {
+            Console.WriteLine($"Update failed: {result?.Message}");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error updating user: {ex.Message}");
+    }
+}
 
         protected async Task DeleteUser(int id)
         {
@@ -134,6 +153,8 @@ namespace AttendanceSystem.Pages
             public string? EducationalLevel { get; set; }
             public string? Course { get; set; }
             public string? YearLevel { get; set; }
+            public string? Photo { get; set; }
+            public string? NewPhoto { get; set; }
         }
 
         public class UserApiResponse

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
 using System.Net.Http.Json;
 
@@ -19,11 +20,24 @@ namespace AttendanceSystem.Pages
 
         private ElementReference nfcInputRef;
 
+        protected async Task OnPhotoSelected(InputFileChangeEventArgs e)
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                // Resize or limit size if needed, convert to base64
+                var resizedFile = await file.RequestImageFileAsync("image/jpeg", 400, 400);
+                using var stream = resizedFile.OpenReadStream(maxAllowedSize: 1024 * 1024 * 5);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                UserModel.Photo = $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+            }
+        }
+
         protected void OnRoleOrEduChanged()
         {
             if (UserModel.Role == "Student")
             {
-                // Restore defaults if returning to Student
                 if (string.IsNullOrEmpty(UserModel.EducationalLevel))
                 {
                     UserModel.EducationalLevel = "College";
@@ -53,7 +67,6 @@ namespace AttendanceSystem.Pages
             }
             else
             {
-                // Teacher / Staff: Wipe student-only fields completely
                 UserModel.EducationalLevel = string.Empty;
                 UserModel.Course = string.Empty;
                 UserModel.YearLevel = string.Empty;
@@ -72,14 +85,7 @@ namespace AttendanceSystem.Pages
         {
             if (IsModalOpen && !IsSuccess)
             {
-                try
-                {
-                    await nfcInputRef.FocusAsync();
-                }
-                catch
-                {
-                    // Focus fallback
-                }
+                try { await nfcInputRef.FocusAsync(); } catch { }
             }
         }
 
@@ -95,7 +101,6 @@ namespace AttendanceSystem.Pages
         {
             try
             {
-                // Double check non-student cleanup before dispatch
                 if (UserModel.Role != "Student")
                 {
                     UserModel.EducationalLevel = string.Empty;
@@ -113,7 +118,7 @@ namespace AttendanceSystem.Pages
 
                     IsSuccess = true;
                     IsDataConfirmed = false;
-                    UserModel = new(); // Reset form
+                    UserModel = new();
                     StateHasChanged();
                 }
                 else
@@ -146,6 +151,7 @@ namespace AttendanceSystem.Pages
         public string Course { get; set; } = string.Empty;
         public string YearLevel { get; set; } = "1st Year";
         public string NfcTagId { get; set; } = string.Empty;
+        public string? Photo { get; set; }
     }
 
     public class RegisterResponse

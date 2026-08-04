@@ -14,7 +14,6 @@
         </div>
 
         <h1 class="text-3xl font-black text-white tracking-tight">Tap NFC Tag Here</h1>
-       <!-- <p class="text-slate-400 text-sm">Mobile Web NFC or Desktop USB Reader supported.</p> -->
 
         <!-- Hidden / Auto-Focused Input Box for USB Readers -->
         <div class="pt-2">
@@ -36,9 +35,16 @@
             
             <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-700">
-                        👤
-                    </div>
+                    @if (!string.IsNullOrEmpty(LastScannedUser.Photo))
+                    {
+                        <img src="http://localhost/attendance-api/uploads/@LastScannedUser.Photo" class="w-16 h-16 rounded-full object-cover shadow-md border-2 border-slate-100" />
+                    }
+                    else
+                    {
+                        <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-700">
+                            👤
+                        </div>
+                    }
                     <div>
                         <h2 class="text-xl font-bold text-slate-800">@LastScannedUser.UserName</h2>
                         <p class="text-xs font-semibold text-slate-400">ID: @LastScannedUser.SchoolId • @LastScannedUser.Role</p>
@@ -46,18 +52,18 @@
                 </div>
 
                 <!-- Status Badges -->
-<div class="flex flex-col items-end gap-1">
-    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider @(LastScannedUser.ActionStatus == "ENTRY" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")">
-        @(LastScannedUser.ActionStatus == "ENTRY" ? "IN CAMPUS" : "OUT OF CAMPUS")
-    </span>
+                <div class="flex flex-col items-end gap-1">
+                    <span class="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider @(LastScannedUser.ActionStatus == "ENTRY" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")">
+                        @(LastScannedUser.ActionStatus == "ENTRY" ? "IN CAMPUS" : "OUT OF CAMPUS")
+                    </span>
 
-    @if (!string.IsNullOrEmpty(LastScannedUser.Punctuality))
-    {
-        <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider @GetPunctualityStyle(LastScannedUser.Punctuality)">
-            @LastScannedUser.Punctuality
-        </span>
-    }
-</div>
+                    @if (!string.IsNullOrEmpty(LastScannedUser.Punctuality))
+                    {
+                        <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider @GetPunctualityStyle(LastScannedUser.Punctuality)">
+                            @LastScannedUser.Punctuality
+                        </span>
+                    }
+                </div>
             </div>
 
             <!-- Greeting Banner -->
